@@ -8,6 +8,8 @@ EmailViews is a native Haiku application that provides a three-pane email viewin
 
 **Current Version:** 1.0-beta (Testing Prototype)
 
+![EmailViews screenshot](screenshot.png)
+
 ## Features
 
 - Query-based email organization (All, New, Sent, Drafts, Starred, With Attachments)
