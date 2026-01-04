@@ -25,7 +25,8 @@ EmailViews is a native Haiku application that provides a three-pane email viewin
 
 This repo is for **bug reports and feature requests only**. Source code is not yet public.
 
-If you want to test EmailViews, send me an email at jorge at ilfelice.online, and I will send you a test binary via reply.
+Binary download: https://github.com/ilfelice/EmailViews/releases/tag/v1.0-beta
+
 This is beta software which may contain bugs. Use at your own risk.
 
 ## Prerequisite
