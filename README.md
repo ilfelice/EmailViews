@@ -23,22 +23,31 @@ EmailViews is a native Haiku application that provides a three-pane email viewin
 
 This repo is for **bug reports and feature requests only**. Source code is not yet public.
 
-If you want to test EmailViews, send me an email at jorge at ilfelice.online.
+If you want to test EmailViews, send me an email at jorge at ilfelice.online, and I will send you a test binary via reply.
+This is beta software which may contain bugs. Use at your own risk.
+
+## Prerequisite
+
+- 64-bit Haiku operating system (developed under nightly version)
+- Email accounts configured in Haiku's E-mail preferences
+- zip package installed for email backup feature (pkgman install zip)
 
 ## Reporting Issues
 
 Before reporting, please:
+
 1. Check if the issue already exists
 2. Test with the latest version
 
 When reporting a bug, include:
+
 - **Version:** (shown in About dialog)
 - **Steps to reproduce:** What you did
 - **Expected:** What should happen
 - **Actual:** What happened instead
 - **System info:** Haiku version (32/64-bit)
 
-For crashes, attach the debug report if available.
+For crashes, please attach the crash report if available.
 
 ## Feedback
 
