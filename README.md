@@ -48,7 +48,7 @@ When reporting a bug, include:
 - **Steps to reproduce:** What you did
 - **Expected:** What should happen
 - **Actual:** What happened instead
-- **System info:** Haiku version (32/64-bit)
+- **System info:** Haiku version (or build #)
 
 For crashes, please attach the crash report if available.
 
