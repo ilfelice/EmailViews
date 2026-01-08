@@ -62,4 +62,4 @@ To be determined. Currently in closed testing.
 
 ---
 
-Built for Haiku • Created by Jorge Mare
+Built for Haiku. Created using AI tools. Maintained by Jorge Mare.
