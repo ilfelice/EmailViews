@@ -6,9 +6,7 @@ A fast, lightweight email viewer for Haiku OS that uses live queries to organize
 
 EmailViews is a native Haiku application that provides a three-pane email viewing experience with real-time updates. It integrates with Haiku's Mail Kit and leverages BFS attributes and live queries for efficient email organization.
 
-**Current Version:** 1.0-beta (Testing Prototype)
-
-![EmailViews screenshot](screenshot.png)
+![EmailViews screenshot](screenshot2.png)
 
 ## Features
 
@@ -62,4 +60,4 @@ To be determined. Currently in closed testing.
 
 ---
 
-Built for Haiku. Created using AI tools. Maintained by Jorge Mare.
+Built for Haiku. Created with the assistance of AI tools. Maintained by Jorge Mare.
