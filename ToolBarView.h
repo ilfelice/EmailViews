@@ -62,6 +62,8 @@ private:
 			bool				fEnabled;
 			bool				fInside;
 			bool				fPressed;
+			float				fScale;
+  
 			BSize				fCachedSize;
 };
 

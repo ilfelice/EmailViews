@@ -31,6 +31,15 @@ static const float kPaddingTop = 4.0f;	// above icon
 static const float kPaddingBottom = 6.0f;	// below label (extra to compensate for icon's built-in top margin)
 static const float kIconLabelGap = 1.0f;	// between icon and label
 
+// #pragma mark - ToobarScale
+
+static float
+CalcScale()
+{
+	BFont font{};
+	return font.Size() / 12.f;
+}
+
 
 // #pragma mark - ToolBarButton
 
@@ -46,6 +55,7 @@ ToolBarButton::ToolBarButton(const char* name, const BBitmap* icon,
 	fEnabled(true),
 	fInside(false),
 	fPressed(false),
+	fScale(CalcScale()),
 	fCachedSize(-1, -1)
 {
 	if (icon != NULL) {
@@ -93,8 +103,8 @@ ToolBarButton::Draw(BRect updateRect)
 		flags);
 
 	// Calculate icon position (centered within the content area)
-	float iconX = bounds.left + floorf((bounds.Width() - kIconSize) / 2);
-	float iconY = bounds.top + kPaddingTop;
+	float iconX = bounds.left + floorf((bounds.Width() - fScale * kIconSize) / 2);
+	float iconY = bounds.top + fScale * kPaddingTop;
 
 	// Draw icon
 	if (fIcon != NULL) {
@@ -119,7 +129,7 @@ ToolBarButton::Draw(BRect updateRect)
 		font_height fh;
 		GetFontHeight(&fh);
 
-		float labelY = iconY + kIconSize + kIconLabelGap + fh.ascent;
+		float labelY = iconY + fScale * (kIconSize + kIconLabelGap) + fh.ascent;
 		float labelWidth = StringWidth(fLabel.String());
 		float labelX = bounds.left + floorf((bounds.Width() - labelWidth) / 2);
 
@@ -280,16 +290,19 @@ ToolBarButton::_CalculateSize()
 	if (fCachedSize.width >= 0)
 		return fCachedSize;
 
-	float width = kIconSize + kPaddingH * 2;
-	float height = kPaddingTop + kIconSize + kPaddingBottom;
+	float width = fScale * (kIconSize + kPaddingH * 2);
+	float height = fScale * (kPaddingTop + kIconSize + kPaddingBottom);
 
 	if (fLabel.Length() > 0) {
 		font_height fh;
 		GetFontHeight(&fh);
-		float labelWidth = StringWidth(fLabel.String()) + kPaddingH * 2;
+
+		float labelWidth = StringWidth(fLabel.String())
+			+ fScale * kPaddingH * 2;
+
 		width = std::max(width, labelWidth);
-		height = kPaddingTop + kIconSize + kIconLabelGap
-			+ ceilf(fh.ascent + fh.descent) + kPaddingBottom;
+		height = fScale * (kPaddingTop + kIconSize + kIconLabelGap
+			+ kPaddingBottom) + ceilf(fh.ascent + fh.descent);
 	}
 
 	fCachedSize.Set(ceilf(width), ceilf(height));
