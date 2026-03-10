@@ -67,6 +67,7 @@
 #include <MailAttachment.h>
 #include <MailContainer.h>
 #include <mail_util.h>
+#include <StringFormat.h>
 #include <cstdio>
 #include <unistd.h>
 #include <errno.h>
@@ -168,9 +169,9 @@ static status_t ZipWorkerThread(void* data)
         delete[] wd->paths;
         
         BNotification notification(B_ERROR_NOTIFICATION);
-        notification.SetGroup("EmailViews");
-        notification.SetTitle("EmailViews");
-        notification.SetContent("Failed to start zip process.");
+        notification.SetGroup(B_TRANSLATE_SYSTEM_NAME(kAppName));
+        notification.SetTitle(B_TRANSLATE("Backup"));
+        notification.SetContent(B_TRANSLATE("Failed to start zip process."));
         notification.Send();
         
         // Notify window that backup finished (even on failure)
@@ -193,15 +194,18 @@ static status_t ZipWorkerThread(void* data)
     // Send notification
     BNotification notification(result == 0 ? 
         B_INFORMATION_NOTIFICATION : B_ERROR_NOTIFICATION);
-    notification.SetGroup("EmailViews");
-    notification.SetTitle("EmailViews");
+    notification.SetGroup(B_TRANSLATE_SYSTEM_NAME(kAppName));
+    notification.SetTitle(B_TRANSLATE_COMMENT("Backup emails", "Notification title"));
     
     if (result == 0) {
         BString content;
-        content << "Successfully backed up " << wd->count << " emails.";
+        static BStringFormat format(B_TRANSLATE("{0, plural,"
+            "one{Successfully backed up # email.}"
+            "other{Successfully backed up # emails.}}"));
+        format.Format(content, wd->count);
         notification.SetContent(content.String());
     } else {
-        notification.SetContent("Backup failed: could not create ZIP archive.");
+        notification.SetContent(B_TRANSLATE("Backup failed: could not create ZIP archive."));
     }
     notification.Send();
     
@@ -281,12 +285,16 @@ static status_t TrashEmptyThread(void* data)
     
     // Send notification
     BNotification notification(B_INFORMATION_NOTIFICATION);
-    notification.SetGroup("EmailViews");
-    notification.SetTitle("EmailViews");
+    notification.SetGroup(B_TRANSLATE_SYSTEM_NAME(kAppName));
+    notification.SetTitle(B_TRANSLATE_COMMENT("Delete from Trash", "Notification title"));
     
-    BString message;
-    message.SetToFormat("%ld email%s permanently deleted", deleted, deleted == 1 ? "" : "s");
-    notification.SetContent(message.String());
+    BString content;
+        static BStringFormat format(B_TRANSLATE("{0, plural,"
+            "one{Permanently deleted # email.}"
+            "other{Permanently deleted # emails.}}"));
+        format.Format(content, deleted);
+
+    notification.SetContent(content.String());
     notification.Send();
     
     // Notify window to update UI
@@ -634,12 +642,15 @@ static status_t PermanentDeleteThread(void* data)
     
     // Send notification
     BNotification notification(B_INFORMATION_NOTIFICATION);
-    notification.SetGroup("EmailViews");
-    notification.SetTitle("EmailViews");
-    
-    BString message;
-    message.SetToFormat("%ld email%s permanently deleted", deleted, deleted == 1 ? "" : "s");
-    notification.SetContent(message.String());
+    notification.SetGroup(B_TRANSLATE_SYSTEM_NAME(kAppName));
+    notification.SetTitle(B_TRANSLATE_COMMENT("Delete from Trash", "Notification title"));
+
+    BString content;
+        static BStringFormat format(B_TRANSLATE("{0, plural,"
+            "one{Permanently deleted # email.}"
+            "other{Permanently deleted # emails.}}"));
+        format.Format(content, deleted);
+    notification.SetContent(content.String());
     notification.Send();
     
     // Notify window to update UI - pass the deleted paths
@@ -3742,15 +3753,10 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
             // In Trash view: permanently delete with confirmation
             if (fShowTrashOnly) {
                 BString confirmMsg;
-                if (deleteCount == 1) {
-                    confirmMsg = B_TRANSLATE("Permanently delete 1 email?\n\nThis cannot be undone.");
-                } else {
-                    BString fmt(B_TRANSLATE("Permanently delete %count% emails?\n\nThis cannot be undone."));
-                    BString countStr;
-                    countStr << deleteCount;
-                    fmt.ReplaceAll("%count%", countStr);
-                    confirmMsg = fmt;
-                }
+                static BStringFormat format(B_TRANSLATE("{0, plural,"
+                    "one{Permanently delete # email?\n\nThis cannot be undone.}"
+                    "other{Permanently delete # emails?\n\nThis cannot be undone.}}"));
+                format.Format(confirmMsg, deleteCount);
                 
                 BAlert* alert = new BAlert(B_TRANSLATE("Delete emails"),
                     confirmMsg.String(),
@@ -3812,12 +3818,11 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
                 // Confirm before moving a large number of emails to Trash
                 if (deleteCount >= 50) {
                     BString confirmMsg;
-                    BString fmt(B_TRANSLATE("Are you sure you want to move %count% emails to Trash?"));
-                    BString countStr;
-                    countStr << deleteCount;
-                    fmt.ReplaceAll("%count%", countStr);
-                    confirmMsg = fmt;
-                    
+                    static BStringFormat format(B_TRANSLATE("{0, plural,"
+                        "one{Are you sure you want to move # email to Trash?}"
+                        "other{Are you sure you want to move # emails to Trash?}}"));
+                    format.Format(confirmMsg, deleteCount);
+
                     BAlert* alert = new BAlert(B_TRANSLATE("Move to Trash"),
                         confirmMsg.String(),
                         B_TRANSLATE("Cancel"), B_TRANSLATE("Move to Trash"), NULL,
@@ -4028,17 +4033,16 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
                 // Show explanation alert
                 int32 count = fPendingRestoreRefs.CountItems();
                 BString alertText;
-                if (count == 1) {
-                    alertText = B_TRANSLATE("You are trying to restore 1 message that belongs to an account that is not configured in your system. Please select the destination folder where you want to restore this email.");
-                } else {
-                    BString fmt(B_TRANSLATE("You are trying to restore %count% messages that belong to an account that is not configured in your system. Please select the destination folder where you want to restore those emails."));
-                    BString countStr;
-                    countStr << count;
-                    fmt.ReplaceAll("%count%", countStr);
-                    alertText = fmt;
-                }
+                static BStringFormat format(B_TRANSLATE("{0, plural,"
+                    "one{You are trying to restore a message that belongs to an account that is "
+                        "not configured in your system. Please select the destination folder where "
+                        "you want to restore this email.}"
+                    "other{You are trying to restore # messages that belong to an account that is "
+                        "not configured in your system. Please select the destination folder where "
+                        "you want to restore these emails.}}"));
+                format.Format(alertText, count);
                 
-                BAlert* alert = new BAlert(B_TRANSLATE("Restore email"),
+                BAlert* alert = new BAlert(B_TRANSLATE("Restore emails"),
                     alertText.String(),
                     B_TRANSLATE("Cancel"), B_TRANSLATE("Select folder"), NULL,
                     B_WIDTH_AS_USUAL, B_INFO_ALERT);
@@ -4185,7 +4189,7 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
                             NULL,
                             true,   // Modal
                             true);  // Hide when done
-                        fRestoreFolderPanel->Window()->SetTitle("Select destination folder");
+                        fRestoreFolderPanel->Window()->SetTitle(B_TRANSLATE("Select destination folder"));
                     }
                     
                     // Set starting directory to mail
@@ -4298,16 +4302,11 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
             
             // Confirm with user first (no query needed yet)
             BString confirmMsg;
-            if (trashCount == 1) {
-                confirmMsg = B_TRANSLATE("Permanently delete 1 email from Trash?\n\nThis cannot be undone.");
-            } else {
-                BString fmt(B_TRANSLATE("Permanently delete %count% emails from Trash?\n\nThis cannot be undone."));
-                BString countStr;
-                countStr << trashCount;
-                fmt.ReplaceAll("%count%", countStr);
-                confirmMsg = fmt;
-            }
-            
+            static BStringFormat format(B_TRANSLATE("{0, plural,"
+                "one{Permanently delete # email from Trash?\n\nThis cannot be undone.}"
+                "other{Permanently delete # emails from Trash?\n\nThis cannot be undone.}}"));
+            format.Format(confirmMsg, trashCount);
+
             BAlert* alert = new BAlert(B_TRANSLATE("Delete emails in Trash"),
                 confirmMsg.String(),
                 B_TRANSLATE("Cancel"), B_TRANSLATE("Delete"), NULL, B_WIDTH_AS_USUAL, B_WARNING_ALERT);
@@ -5535,12 +5534,12 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
             fQueryList->Invalidate();
             
             // Update window title with new email count
-            BString title(kAppName);
-            if (fCachedNewCount == 1) {
-                title.SetToFormat("%s - 1 new email", kAppName);
-            } else if (fCachedNewCount > 1) {
-                title.SetToFormat("%s - %ld new emails", kAppName, fCachedNewCount);
-            }
+            BString title(B_TRANSLATE_SYSTEM_NAME(kAppName));
+            title << " - ";
+            static BStringFormat format(B_TRANSLATE("{0, plural,"
+                "one{# new email}"
+                "other{# new emails}}"));
+            format.Format(title, fCachedNewCount);
             SetTitle(title.String());
             break;
         }
@@ -5829,32 +5828,37 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
             const char* attrName;
             switch (attr) {
                 case SEARCH_FROM:
-                    attrName = "From";
+                    attrName = B_TRANSLATE_COMMENT("From", "Attribute name");
                     break;
                 case SEARCH_TO:
-                    attrName = "To";
+                    attrName = B_TRANSLATE_COMMENT("To", "Attribute name");
                     break;
                 case SEARCH_ACCOUNT:
-                    attrName = "Account";
+                    attrName = B_TRANSLATE_COMMENT("Account", "Attribute name");
                     break;
                 case SEARCH_SUBJECT:
                 default:
-                    attrName = "Subject";
+                    attrName = B_TRANSLATE_COMMENT("Subject", "Attribute name");
                     break;
             }
             
             // Create default query name from attribute and search text
-            BString defaultName;
-            const char* operatorStr = fSearchField->IsMatchesMode() ? "matches" : "contains";
-            defaultName << "'" << attrName << "' " << operatorStr << ": " << searchText;
+            BString defaultName = B_TRANSLATE_COMMENT("'%attributename%' %operator%: '%searchtext%'",
+                "Default query filename, e.g. 'Subject' contains 'Some text'");
+            const char* operatorStr = fSearchField->IsMatchesMode()
+                ? B_TRANSLATE_COMMENT("matches", "The filter operator")
+                : B_TRANSLATE_COMMENT("contains", "The filter operator");
+            defaultName.ReplaceFirst("%attributename%", attrName);
+            defaultName.ReplaceFirst("%operator%", operatorStr);
+            defaultName.ReplaceFirst("%searchtext%", searchText);
             // Truncate if too long
             if (defaultName.Length() > 60)
-                defaultName.Truncate(57).Append("...");
+                defaultName.Truncate(57).Append("…");
             
             // Ask user for query name
             QueryNameDialog* dialog = new QueryNameDialog(
-                "Save Search as Query",
-                "Query name:",
+                B_TRANSLATE("Save filter as query"),
+                B_TRANSLATE("Query name:"),
                 defaultName.String());
             
             BString queryName;

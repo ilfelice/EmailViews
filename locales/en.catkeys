@@ -1,12 +1,12 @@
-1	English	application/x-vnd.EmailViews	2432148189
+1	English	application/x-vnd.EmailViews	3018667984
 Open attachment	ContentView		Open attachment
 Attach	Toolbar	As short as possible	Attach
 Cancel	QueryNameDialog		Cancel
 From	EmailColumnHeader		From
 Delete emails in Trash	EmailViewsWindow		Delete emails in Trash
+Restore emails	EmailViewsWindow		Restore emails
 Save	Toolbar	As short as possible	Save
 Inconsistency occurred in the undo/redo buffer.	ContentView		Inconsistency occurred in the undo/redo buffer.
-Are you sure you want to move %count% emails to Trash?	EmailViewsWindow		Are you sure you want to move %count% emails to Trash?
 User interface	Preferences		User interface
 Empty subject	EmailReaderWindow		Empty subject
  Read 	Toolbar	As short as possible	 Read 
@@ -25,15 +25,17 @@ Save changes to this signature?	SignatureWindow		Save changes to this signature?
 Select folder	EmailViewsWindow		Select folder
 Reply to sender	EmailReaderWindow		Reply to sender
 Cut	EmailReaderWindow		Cut
+Delete from Trash	EmailViewsWindow	Notification title	Delete from Trash
 Signatures	SignatureWindow		Signatures
 Date	EmailColumnHeader	Email list column header	Date
 Filter:	Preferences		Filter:
 No spam emails.	EmailViewsWindow		No spam emails.
 Sent emails	EmailViewsWindow		Sent emails
 Star	EmailColumnHeader		Star
-Add 'To' query	EmailViewsWindow		Add 'To' query
 Draft emails	EmailViewsWindow		Draft emails
+Add 'To' query	EmailViewsWindow		Add 'To' query
 None	ReaderSettings		None
+Save filter as query	EmailViewsWindow		Save filter as query
 %d - Date	Preferences		%d - Date
 Copy to new	EmailReaderWindow		Copy to new
 1 new email	DeskbarReplicant		1 new email
@@ -61,27 +63,33 @@ Account from mail	Preferences		Account from mail
 Check spelling	EmailReaderWindow		Check spelling
 Undo	EmailReaderWindow		Undo
 Signature	Toolbar	As short as possible	Signature
+To	EmailViewsWindow	Attribute name	To
 There are no emails in the Trash.	EmailViewsWindow		There are no emails in the Trash.
 Queries	EmailViewsWindow		Queries
 Use default account	Preferences		Use default account
 An error occurred trying to save this signature.	SignatureWindow		An error occurred trying to save this signature.
 Composer	EmailReaderWindow		Composer
 Filter	EmailViewsWindow		Filter
+'%attributename%' %operator%: '%searchtext%'	EmailViewsWindow	Default query filename, e.g. 'Subject' contains 'Some text'	'%attributename%' %operator%: '%searchtext%'
 Undo	SignatureWindow		Undo
 The subject is empty. Do you want to send anyway?	EmailReaderWindow		The subject is empty. Do you want to send anyway?
+Backup emails	EmailViewsWindow	Notification title	Backup emails
 There is no installed handler for URL links.	ContentView		There is no installed handler for URL links.
 Draft emails (%ld)	EmailViewsWindow		Draft emails (%ld)
-Permanently delete %count% emails?\n\nThis cannot be undone.	EmailViewsWindow		Permanently delete %count% emails?\n\nThis cannot be undone.
 Open	SignatureWindow		Open
 Include file attributes in attachments	Preferences		Include file attributes in attachments
 Message	EmailReaderWindow		Message
+contains	EmailViewsWindow	The filter operator	contains
 Unread emails (%count%)	DeskbarReplicant		Unread emails (%count%)
 New mail message	EmailReaderWindow		New mail message
 No spell check dictionary was found.\n\nPlease install a \"words\" file in:\n/boot/system/data/spell_check/word_dictionary/	EmailReaderWindow		No spell check dictionary was found.\n\nPlease install a \"words\" file in:\n/boot/system/data/spell_check/word_dictionary/
 Save attachment…	ContentView		Save attachment…
 Haiku Mail application by the Haiku Project.\nIcons from Haiku and Zumi icon sets.	AboutWindow		Haiku Mail application by the Haiku Project.\nIcons from Haiku and Zumi icon sets.
 %count% new emails	DeskbarReplicant		%count% new emails
+{0, plural,one{Permanently deleted # email.}other{Permanently deleted # emails.}}	EmailViewsWindow		{0, plural,one{Permanently deleted # email.}other{Permanently deleted # emails.}}
+{0, plural,one{Are you sure you want to move # email to Trash?}other{Are you sure you want to move # emails to Trash?}}	EmailViewsWindow		{0, plural,one{Are you sure you want to move # email to Trash?}other{Are you sure you want to move # emails to Trash?}}
 -6 days	TimeRangeSlider	Time range slider label - keep as short as possible	-6 days
+Subject	EmailViewsWindow	Attribute name	Subject
 Restore	EmailListView		Restore
 Attach attributes:	Preferences		Attach attributes:
 Attachments:	EnclosuresView		Attachments:
@@ -93,10 +101,9 @@ Open queries folder	EmailViewsWindow		Open queries folder
 -5 days	TimeRangeSlider	Time range slider label - keep as short as possible	-5 days
 The mail_daemon could not be started:\n\t	EmailReaderWindow		The mail_daemon could not be started:\n\t
 Backup emails to ZIP file	SearchBarView		Backup emails to ZIP file
-You are trying to restore %count% messages that belong to an account that is not configured in your system. Please select the destination folder where you want to restore those emails.	EmailViewsWindow		You are trying to restore %count% messages that belong to an account that is not configured in your system. Please select the destination folder where you want to restore those emails.
 -4 days	TimeRangeSlider	Time range slider label - keep as short as possible	-4 days
-Query exists	EmailViewsWindow		Query exists
 Subject:	EmailViewsWindow		Subject:
+Query exists	EmailViewsWindow		Query exists
 Forward	EmailListView		Forward
 Move to Trash	EmailListView		Move to Trash
 -3 days	TimeRangeSlider	Time range slider label - keep as short as possible	-3 days
@@ -106,8 +113,8 @@ Cancel	Preferences		Cancel
 Edit	SignatureWindow		Edit
 Text wrapping:	Preferences		Text wrapping:
 Forward	Toolbar	As short as possible	Forward
-Add 'From' query	EmailViewsWindow		Add 'From' query
 Reply all	EmailViewsWindow		Reply all
+Add 'From' query	EmailViewsWindow		Add 'From' query
 -2 days	TimeRangeSlider	Time range slider label - keep as short as possible	-2 days
 Copy link location	ContentView		Copy link location
 Your main text contains %ld unencodable characters. Perhaps a different character set would work better? Hit Send to send it anyway (a substitute character will be used in place of the unencodable ones), or choose Cancel to go back and try fixing it up.	EmailReaderWindow		Your main text contains %ld unencodable characters. Perhaps a different character set would work better? Hit Send to send it anyway (a substitute character will be used in place of the unencodable ones), or choose Cancel to go back and try fixing it up.
@@ -128,10 +135,11 @@ Mark as read	EmailViewsWindow		Mark as read
 Save this message as a draft before closing?	EmailReaderWindow		Save this message as a draft before closing?
 Mark as read	EmailListView		Mark as read
 Credits:	AboutWindow		Credits:
-Email backup	EmailViewsWindow		Email backup
 New email	EmailViewsWindow		New email
+Email backup	EmailViewsWindow		Email backup
 Reply	EmailViewsWindow		Reply
 Size:	Preferences		Size:
+{0, plural,one{Successfully backed up # email.}other{Successfully backed up # emails.}}	EmailViewsWindow		{0, plural,one{Successfully backed up # email.}other{Successfully backed up # emails.}}
 Time range:	EmailViewsWindow		Time range:
 Initial spell check mode:	Preferences		Initial spell check mode:
 -6 months	TimeRangeSlider	Time range slider label - keep as short as possible	-6 months
@@ -159,6 +167,7 @@ Resend	EmailReaderWindow		Resend
 Send	EmailReaderWindow		Send
 Filter by 'Subject'	EmailViewsWindow		Filter by 'Subject'
 Subject	SearchBarView		Subject
+Query name:	EmailViewsWindow		Query name:
 Filter by 'Sender'	EmailListView		Filter by 'Sender'
 Mark as unread	EmailViewsWindow		Mark as unread
 Removing attachments from a forwarded mail is not yet implemented!\nIt will not yet work correctly.	EnclosuresView		Removing attachments from a forwarded mail is not yet implemented!\nIt will not yet work correctly.
@@ -174,17 +183,18 @@ Paste	SignatureWindow		Paste
 Reply preamble:	Preferences		Reply preamble:
 Unknown	HeaderView		Unknown
 Send message	EmailReaderWindow		Send message
-Restore email	EmailViewsWindow		Restore email
 Show raw message	EmailReaderWindow		Show raw message
 -5 years	TimeRangeSlider	Time range slider label - keep as short as possible	-5 years
+{0, plural,one{You are trying to restore a message that belongs to an account that is not configured in your system. Please select the destination folder where you want to restore this email.}other{You are trying to restore # messages that belong to an account that is not configured in your system. Please select the destination folder where you want to restore these emails.}}	EmailViewsWindow		{0, plural,one{You are trying to restore a message that belongs to an account that is not configured in your system. Please select the destination folder where you want to restore this email.}other{You are trying to restore # messages that belong to an account that is not configured in your system. Please select the destination folder where you want to restore these emails.}}
 Remove attachment	EnclosuresView		Remove attachment
 Don't send	EmailReaderWindow		Don't send
-Permanently delete 1 email?\n\nThis cannot be undone.	EmailViewsWindow		Permanently delete 1 email?\n\nThis cannot be undone.
 Close	EmailReaderWindow		Close
+From	EmailViewsWindow	Attribute name	From
 Sorry	SignatureWindow		Sorry
 Email preferences	Preferences		Email preferences
 Save backup as	EmailViewsWindow		Save backup as
 Delete emails in Trash	TrashItemView		Delete emails in Trash
+Failed to start zip process.	EmailViewsWindow		Failed to start zip process.
 Mark unread	Toolbar	As short as possible	Mark unread
 Use system font size	Preferences		Use system font size
 Add 'To' query	EmailListView		Add 'To' query
@@ -218,8 +228,8 @@ EmailViews is a fast, lightweight email viewer for Haiku that uses live queries 
 Backup in progress…	SearchBarView		Backup in progress…
 Remove query	QueryListView		Remove query
 Title:	SignatureWindow		Title:
-Select an email to preview its contents.	EmailViewsWindow		Select an email to preview its contents.
 With attachments	EmailViewsWindow		With attachments
+Select an email to preview its contents.	EmailViewsWindow		Select an email to preview its contents.
 Beginner	Preferences		Beginner
 All emails	EmailViewsWindow		All emails
 Viewer	EmailReaderWindow		Viewer
@@ -234,13 +244,13 @@ Encoding	EmailReaderWindow		Encoding
 File	EmailReaderWindow		File
 Colored quotes:	Preferences		Colored quotes:
 (Date unavailable)	EmailReaderWindow		(Date unavailable)
+matches	EmailViewsWindow	The filter operator	matches
 Add	Preferences		Add
 To:	EmailViewsWindow		To:
 OK	EnclosuresView		OK
 OK	EmailReaderWindow		OK
 Account:	EmailViewsWindow		Account:
 None	EmailReaderWindow		None
-Permanently delete %count% emails from Trash?\n\nThis cannot be undone.	EmailViewsWindow		Permanently delete %count% emails from Trash?\n\nThis cannot be undone.
 Add attachment…	EmailReaderWindow		Add attachment…
 Filter:	SearchBarView		Filter:
 Create new email…	DeskbarReplicant		Create new email…
@@ -250,6 +260,7 @@ From	EmailColumnHeader	Email list column header	From
 OK	AboutWindow		OK
 Edit signatures…	EmailReaderWindow		Edit signatures…
 Unread emails	QueryListView		Unread emails
+Backup	EmailViewsWindow		Backup
 Select search operator	SearchBarView		Select search operator
 Spam (%ld)	EmailViewsWindow		Spam (%ld)
 Email accounts…	DeskbarReplicant		Email accounts…
@@ -279,10 +290,13 @@ Could not open email file.	EmailViewsWindow		Could not open email file.
 Add 'Account' query	EmailViewsWindow		Add 'Account' query
 Redo	EmailReaderWindow		Redo
 Subject	EmailColumnHeader		Subject
+Account	EmailViewsWindow	Attribute name	Account
 (Name unavailable)	EmailReaderWindow		(Name unavailable)
 Not spam	EmailListView		Not spam
+Backup failed: could not create ZIP archive.	EmailViewsWindow		Backup failed: could not create ZIP archive.
 Failed to create query file.	EmailViewsWindow		Failed to create query file.
 Save as draft	EmailReaderWindow		Save as draft
+{0, plural,one{Permanently delete # email?\n\nThis cannot be undone.}other{Permanently delete # emails?\n\nThis cannot be undone.}}	EmailViewsWindow		{0, plural,one{Permanently delete # email?\n\nThis cannot be undone.}other{Permanently delete # emails?\n\nThis cannot be undone.}}
 Attachment	EmailColumnHeader		Attachment
 <none>	HeaderView		<none>
 Spam	Toolbar	As short as possible	Spam
@@ -304,13 +318,12 @@ Really delete this signature? This cannot be undone.	SignatureWindow		Really del
 Previous message	EmailReaderWindow		Previous message
 Revert	Preferences		Revert
 From:	HeaderView		From:
-Permanently delete 1 email from Trash?\n\nThis cannot be undone.	EmailViewsWindow		Permanently delete 1 email from Trash?\n\nThis cannot be undone.
+{0, plural,one{# new email}other{# new emails}}	EmailViewsWindow		{0, plural,one{# new email}other{# new emails}}
 Forward without attachments	EmailReaderWindow		Forward without attachments
 Move to Trash	EmailViewsWindow		Move to Trash
 Check email	Toolbar	As short as possible	Check email
 Send/Receive email	DeskbarReplicant		Send/Receive email
 -1 week	TimeRangeSlider	Time range slider label - keep as short as possible	-1 week
-You are trying to restore 1 message that belongs to an account that is not configured in your system. Please select the destination folder where you want to restore this email.	EmailViewsWindow		You are trying to restore 1 message that belongs to an account that is not configured in your system. Please select the destination folder where you want to restore this email.
 Don't save	EmailReaderWindow		Don't save
 Email accounts…	EmailReaderWindow		Email accounts…
 Spam	EmailViewsWindow		Spam
@@ -319,15 +332,16 @@ Show icons only	Preferences		Show icons only
 Status	EmailColumnHeader	Email list column header	Status
 Sorry, could not find an application that supports the 'Person' data type.	EmailReaderWindow		Sorry, could not find an application that supports the 'Person' data type.
 Untitled	EmailReaderWindow		Untitled
-HTML message	EmailViewsWindow		HTML message
 -1 year	TimeRangeSlider	Time range slider label - keep as short as possible	-1 year
-Filter by 'Recipient'	EmailListView		Filter by 'Recipient'
+HTML message	EmailViewsWindow		HTML message
 Page setup…	EmailReaderWindow		Page setup…
+Filter by 'Recipient'	EmailListView		Filter by 'Recipient'
 Add	ContentView		Add
 Reply to all	EmailReaderWindow		Reply to all
 Reply all	EmailListView		Reply all
 Add 'From' query	EmailListView		Add 'From' query
 Unread emails (%ld)	EmailViewsWindow		Unread emails (%ld)
+Select destination folder	EmailViewsWindow		Select destination folder
 Cc:	EmailReaderWindow		Cc:
 1 email	EmailViewsWindow		1 email
 Clear filter	EmailViewsWindow		Clear filter
@@ -349,6 +363,7 @@ Copy	EmailReaderWindow		Copy
 Next message	EmailReaderWindow		Next message
 Reply	EmailReaderWindow		Reply
 Emails in Trash	TrashItemView		Emails in Trash
+{0, plural,one{Permanently delete # email from Trash?\n\nThis cannot be undone.}other{Permanently delete # emails from Trash?\n\nThis cannot be undone.}}	EmailViewsWindow		{0, plural,one{Permanently delete # email from Trash?\n\nThis cannot be undone.}other{Permanently delete # emails from Trash?\n\nThis cannot be undone.}}
 Bcc:	HeaderView		Bcc:
 Select all	EmailReaderWindow		Select all
 Humdinger, for ideas, testing, bug reports, and code contributions.	AboutWindow		Humdinger, for ideas, testing, bug reports, and code contributions.
