@@ -238,7 +238,7 @@ TPrefsWindow::TPrefsWindow(BPoint leftTop, BFont* font, int32* level,
 	int32 layoutRow = 0;
 
 	fButtonBarMenu = _BuildButtonBarMenu(*buttonBar);
-	menu = new BMenuField("bar", B_TRANSLATE("Button bar:"), fButtonBarMenu);
+	menu = new BMenuField("bar", B_TRANSLATE("Toolbar:"), fButtonBarMenu);
 	add_menu_to_layout(menu, interfaceLayout, layoutRow);
 
 	fShowTimeRangeMenu = _BuildShowTimeRangeMenu(fShowTimeRange);
