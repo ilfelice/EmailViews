@@ -154,6 +154,15 @@ public:
     bool                IsLoading() const { return fLoaderThread >= 0; }
     int32               LoadingProgress() const;
     
+    // === Body / Full-Text Search API ===
+    
+    void                StartBodySearch(const char* searchText,
+                                        bool caseSensitive,
+                                        bool fullText);
+    void                StopBodySearch();
+    bool                IsBodySearchRunning() const
+                            { return fBodySearchThread >= 0; }
+    
     static const uint32 kMsgLoadingUpdate = 'ldud';
     
     // === Data Access ===
@@ -257,7 +266,10 @@ public:
         kMsgMarkAsRead      = 'mkrd',
         kMsgMarkAsUnread    = 'mkun',
         kMsgMarkAsSent      = 'mkst',
-        kMsgMoveToTrash     = 'mvtr'
+        kMsgMoveToTrash     = 'mvtr',
+        kMsgBodySearchBatch = 'bsbt',
+        kMsgBodySearchDone  = 'bsdn',
+        kMsgBodySearchProgress = 'bspg'
     };
     
     // === Appearance ===
@@ -342,6 +354,9 @@ private:
     void                _NotifyCountChanged();
     static int32        _LoaderThread(void* data);
     
+    // Body search
+    static int32        _BodySearchThread(void* data);
+    
 private:
     // Data — fItems is the source of truth for display order.
     // fNodeToIndex provides O(1) lookup by node_ref but may have stale indices
@@ -420,6 +435,13 @@ private:
 #else
     BObjectList<BQuery> fLiveQueries;
 #endif
+    
+    // Body search state
+    thread_id           fBodySearchThread;
+    std::shared_ptr<volatile bool> fBodySearchStopFlag;
+    int32               fBodySearchTotal;   // Total emails to scan
+    int32               fBodySearchScanned; // Emails scanned so far
+    int32               fBodySearchFound;   // Matches found so far
 };
 
 

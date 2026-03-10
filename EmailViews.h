@@ -329,6 +329,12 @@ private:
     BString fBaseQuery;  // Query predicate before search/time filters are applied
     bool fIsSearchActive;
     
+    // Pending body/full-text search (deferred until BFS query completes)
+    bool fPendingBodySearch;
+    BString fPendingBodySearchText;
+    bool fPendingBodySearchCaseSensitive;
+    bool fPendingBodySearchFullText;
+    
     // Time range filter
     TimeRangeSlider* fTimeRangeSlider;
     BStringView* fTimeRangeLabel;

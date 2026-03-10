@@ -57,6 +57,9 @@
 
 #include <MessageRunner.h>
 
+#include <mail/E-mail.h>
+#include <mail/MailMessage.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -152,6 +155,235 @@ static BBitmap* sStarIcon = NULL;
 static BBitmap* sAttachmentIcon = NULL;
 static BBitmap* sAttachmentWhiteIcon = NULL;
 static bool sIconsLoaded = false;
+
+
+// ============================================================================
+// Body text extraction helpers (for body/full-text search)
+// ============================================================================
+
+// Strip HTML tags from a string in-place, decode common HTML entities,
+// and collapse excessive whitespace. Only applied when the content is
+// detected as HTML. Preserves all text between tags so code examples
+// in entity-encoded form (e.g. &lt;div&gt;) come through correctly.
+static void
+StripHtmlTags(BString* text)
+{
+	if (text == NULL || text->Length() == 0)
+		return;
+
+	const char* src = text->String();
+	int32 srcLen = text->Length();
+	BString result;
+	result.SetTo("", srcLen);  // Pre-allocate
+
+	bool inTag = false;
+	bool inScript = false;  // Inside <script> or <style> blocks
+
+	for (int32 i = 0; i < srcLen; i++) {
+		char c = src[i];
+
+		if (inScript) {
+			// Look for closing </script> or </style>
+			if (c == '<' && i + 2 < srcLen && src[i + 1] == '/') {
+				// Check for </script or </style (case-insensitive)
+				BString closing;
+				int32 end = i + 2;
+				while (end < srcLen && src[end] != '>' && (end - i) < 12)
+					end++;
+				if (end < srcLen) {
+					text->CopyInto(closing, i + 2, end - i - 2);
+					closing.ToLower();
+					if (closing == "script" || closing == "style") {
+						inScript = false;
+						i = end;  // Skip past the closing tag
+					}
+				}
+			}
+			continue;
+		}
+
+		if (c == '<') {
+			// Check for <script or <style (case-insensitive)
+			if (i + 7 < srcLen) {
+				BString tagName;
+				int32 end = i + 1;
+				while (end < srcLen && src[end] != '>' && src[end] != ' '
+					&& (end - i) < 10)
+					end++;
+				text->CopyInto(tagName, i + 1, end - i - 1);
+				tagName.ToLower();
+				if (tagName == "script" || tagName == "style") {
+					inScript = true;
+					// Skip to end of opening tag
+					while (i < srcLen && src[i] != '>')
+						i++;
+					continue;
+				}
+			}
+			inTag = true;
+			// Insert a space for block-level tags to prevent word joining
+			if (result.Length() > 0) {
+				char last = result.ByteAt(result.Length() - 1);
+				if (last != ' ' && last != '\n')
+					result << ' ';
+			}
+			continue;
+		}
+
+		if (c == '>') {
+			inTag = false;
+			continue;
+		}
+
+		if (inTag)
+			continue;
+
+		// Decode HTML entities
+		if (c == '&' && i + 1 < srcLen) {
+			// Find the semicolon
+			int32 semi = -1;
+			for (int32 j = i + 1; j < srcLen && j < i + 10; j++) {
+				if (src[j] == ';') {
+					semi = j;
+					break;
+				}
+			}
+			if (semi > i + 1) {
+				BString entity;
+				text->CopyInto(entity, i + 1, semi - i - 1);
+
+				bool decoded = false;
+				if (entity == "amp") {
+					result << '&'; decoded = true;
+				} else if (entity == "lt") {
+					result << '<'; decoded = true;
+				} else if (entity == "gt") {
+					result << '>'; decoded = true;
+				} else if (entity == "quot") {
+					result << '"'; decoded = true;
+				} else if (entity == "apos") {
+					result << '\''; decoded = true;
+				} else if (entity == "nbsp") {
+					result << ' '; decoded = true;
+				} else if (entity.ByteAt(0) == '#') {
+					// Numeric entity: &#nnn; or &#xHHH;
+					int32 codePoint = 0;
+					if (entity.ByteAt(1) == 'x' || entity.ByteAt(1) == 'X') {
+						codePoint = (int32)strtol(
+							entity.String() + 2, NULL, 16);
+					} else {
+						codePoint = atoi(entity.String() + 1);
+					}
+					if (codePoint > 0 && codePoint < 128) {
+						result << (char)codePoint;
+						decoded = true;
+					} else if (codePoint >= 128) {
+						// Non-ASCII: replace with space to avoid
+						// broken UTF-8 sequences in search matching
+						result << ' ';
+						decoded = true;
+					}
+				}
+				if (decoded) {
+					i = semi;  // Skip past the entity
+					continue;
+				}
+			}
+		}
+
+		result << c;
+	}
+
+	*text = result;
+}
+
+
+// Extract the plain text body from an email file. Returns true if text
+// was successfully extracted. For HTML-only emails, strips tags and
+// decodes entities so the text is searchable.
+static bool
+ExtractBodyText(const entry_ref& ref, BString* outText)
+{
+	if (outText == NULL)
+		return false;
+
+	outText->SetTo("");
+
+	// Try the Mail Kit parser first — handles multipart correctly,
+	// returning the text/plain alternative when available.
+	BEmailMessage email(&ref);
+	BMailComponent* body = email.Body();
+	if (body != NULL) {
+		BTextMailComponent* textComp
+			= dynamic_cast<BTextMailComponent*>(body);
+		if (textComp != NULL) {
+			const char* text = textComp->Text();
+			if (text != NULL && text[0] != '\0') {
+				*outText = text;
+
+				// Check if the "text" is actually HTML
+				BString lower(*outText);
+				lower.ToLower();
+				if (lower.FindFirst("<!doctype html") >= 0
+					|| lower.FindFirst("<html") >= 0
+					|| (lower.FindFirst("<head") >= 0
+						&& lower.FindFirst("<body") >= 0)) {
+					StripHtmlTags(outText);
+				}
+				return true;
+			}
+		}
+	}
+
+	// Fallback: read raw file and skip past headers
+	BFile file(&ref, B_READ_ONLY);
+	if (file.InitCheck() != B_OK)
+		return false;
+
+	off_t fileSize;
+	file.GetSize(&fileSize);
+	if (fileSize <= 0 || fileSize > 1024 * 1024)
+		return false;  // Skip files > 1 MB
+
+	char* buffer = new(std::nothrow) char[fileSize + 1];
+	if (buffer == NULL)
+		return false;
+
+	ssize_t bytesRead = file.Read(buffer, fileSize);
+	if (bytesRead <= 0) {
+		delete[] buffer;
+		return false;
+	}
+	buffer[bytesRead] = '\0';
+
+	// Find the blank line separating headers from body
+	const char* bodyStart = strstr(buffer, "\r\n\r\n");
+	if (bodyStart == NULL)
+		bodyStart = strstr(buffer, "\n\n");
+
+	if (bodyStart != NULL) {
+		while (*bodyStart == '\r' || *bodyStart == '\n')
+			bodyStart++;
+		*outText = bodyStart;
+	}
+
+	delete[] buffer;
+
+	if (outText->Length() == 0)
+		return false;
+
+	// Check if the fallback content is HTML
+	BString lower(*outText);
+	lower.ToLower();
+	if (lower.FindFirst("<!doctype html") >= 0
+		|| lower.FindFirst("<html") >= 0
+		|| (lower.FindFirst("<head") >= 0
+			&& lower.FindFirst("<body") >= 0)) {
+		StripHtmlTags(outText);
+	}
+
+	return true;
+}
 
 
 // Background item disposal to avoid UI stalls when clearing large lists.
@@ -652,7 +884,11 @@ EmailListView::EmailListView(const char* name, BWindow* target)
     fQueryAttachmentsOnly(false),
     fQueryCutoffTime(0),
     fLoadedCount(0),
-    fTotalCount(0)
+    fTotalCount(0),
+    fBodySearchThread(-1),
+    fBodySearchTotal(0),
+    fBodySearchScanned(0),
+    fBodySearchFound(0)
 {
     // Create internal components
     
@@ -742,7 +978,8 @@ EmailListView::EmailListView(const char* name, BWindow* target)
     // StatusAreaView wraps status label + loading dots and draws bottom border
     StatusAreaView* statusArea = new StatusAreaView("statusArea");
     BLayoutBuilder::Group<>(statusArea, B_HORIZONTAL, 0)
-        .SetInsets(be_control_look->DefaultLabelSpacing(), 0, 0, 0)
+        .SetInsets(be_control_look->DefaultLabelSpacing(), 0,
+                   be_control_look->DefaultLabelSpacing(), 0)
         .Add(fStatusLabel, 0)
         .Add(fLoadingDots, 0);
 
@@ -782,6 +1019,13 @@ EmailListView::~EmailListView()
         status_t result;
         wait_for_thread(fLoaderThread, &result);
         fLoaderThread = -1;
+    }
+    if (fBodySearchStopFlag)
+        *fBodySearchStopFlag = true;
+    if (fBodySearchThread >= 0) {
+        status_t result;
+        wait_for_thread(fBodySearchThread, &result);
+        fBodySearchThread = -1;
     }
     _StopLiveQueries();
     
@@ -1375,6 +1619,100 @@ EmailListView::MessageReceived(BMessage* message)
                     break;
                 }
             }
+            break;
+        }
+        
+        case kMsgBodySearchBatch:
+        {
+            // Batch of matching emails from body search thread
+            int32 queryId = 0;
+            message->FindInt32("queryId", &queryId);
+            if (queryId != fCurrentQueryId) {
+                // Stale batch — delete the EmailRefs
+                void* ptr;
+                int32 index = 0;
+                while (message->FindPointer("emailref", index++, &ptr) == B_OK)
+                    delete (EmailRef*)ptr;
+                break;
+            }
+            
+            void* ptr;
+            int32 index = 0;
+            int32 added = 0;
+            while (message->FindPointer("emailref", index++, &ptr) == B_OK) {
+                EmailRef* emailRef = (EmailRef*)ptr;
+                if (emailRef != NULL) {
+                    AddEmailSorted(emailRef);
+                    added++;
+                }
+            }
+            
+            if (added > 0) {
+                // Redraw the content view and update scrollbar
+                _UpdateScrollBar();
+                if (fContentView != NULL)
+                    fContentView->Invalidate();
+                if (Window() != NULL)
+                    Window()->UpdateIfNeeded();
+            }
+            
+            // Update status with scanned count
+            fBodySearchFound = fItems.CountItems();
+            int32 scanned = 0;
+            message->FindInt32("scanned", &scanned);
+            fBodySearchScanned = scanned;
+            BString status;
+            status.SetToFormat("%ld of %ld",
+                (long)fBodySearchScanned, (long)fBodySearchTotal);
+            SetStatusText(status.String());
+            
+            // Show content as matches arrive
+            _SendLoadingUpdate(true, false);
+            break;
+        }
+        
+        case kMsgBodySearchProgress:
+        {
+            // Progress update from body search thread (scanned count)
+            int32 queryId = 0;
+            message->FindInt32("queryId", &queryId);
+            if (queryId != fCurrentQueryId)
+                break;
+            
+            int32 scanned = 0;
+            message->FindInt32("scanned", &scanned);
+            fBodySearchScanned = scanned;
+            
+            // Update status: "N of M" where N = scanned, M = total
+            BString status;
+            status.SetToFormat("%ld of %ld",
+                (long)fBodySearchScanned, (long)fBodySearchTotal);
+            SetStatusText(status.String());
+            break;
+        }
+        
+        case kMsgBodySearchDone:
+        {
+            int32 queryId = 0;
+            message->FindInt32("queryId", &queryId);
+            if (queryId != fCurrentQueryId)
+                break;
+            
+            fBodySearchThread = -1;
+            fBodySearchFound = fItems.CountItems();
+            
+            // Final sort and HashMap rebuild
+            SortItems();
+            fNodeToIndex.clear();
+            for (int32 i = 0; i < fItems.CountItems(); i++) {
+                EmailItem* item = fItems.ItemAt(i);
+                if (item != NULL && item->Ref() != NULL)
+                    fNodeToIndex[item->Ref()->nodeRef] = i;
+            }
+            
+            _UpdateScrollBar();
+            if (fContentView != NULL) fContentView->Invalidate();
+            _SendLoadingUpdate(false, true);
             break;
         }
         
@@ -3971,6 +4309,216 @@ EmailListView::_ProcessLoaderBatch(BMessage* message)
             lastUpdateTime = now;
         }
     }
+}
+
+
+// =============================================================================
+// Body / Full-Text Search
+// =============================================================================
+
+// Data passed to the body search background thread.
+struct BodySearchData {
+    BMessenger          messenger;
+    std::shared_ptr<volatile bool> stopFlag;
+    volatile int32*     currentQueryId;
+    int32               queryId;
+    BString             searchText;
+    bool                caseSensitive;
+    bool                fullText;      // true = check headers first
+    BList               refs;          // List of entry_ref* (owned, thread frees them)
+};
+
+
+void
+EmailListView::StartBodySearch(const char* searchText, bool caseSensitive,
+    bool fullText)
+{
+    if (searchText == NULL || searchText[0] == '\0')
+        return;
+    
+    // Stop any running body search
+    StopBodySearch();
+    
+    // Snapshot the current list as entry_refs (before clearing).
+    // This is the search scope — whatever the BFS query loaded.
+    BList refs;
+    for (int32 i = 0; i < fItems.CountItems(); i++) {
+        EmailItem* item = fItems.ItemAt(i);
+        if (item != NULL && item->Ref() != NULL)
+            refs.AddItem(new entry_ref(item->Ref()->entryRef));
+    }
+    
+    int32 total = refs.CountItems();
+    if (total == 0)
+        return;
+    
+    // Bump query ID so any pending loader batches are discarded
+    fCurrentQueryId++;
+    
+    // Stop live queries — they'd add items during the search
+    _StopLiveQueries();
+    
+    // Clear the list for filter-in display
+    MakeEmpty();
+    
+    // Reset counters
+    fBodySearchTotal = total;
+    fBodySearchScanned = 0;
+    fBodySearchFound = 0;
+    
+    // Show initial status
+    BString status;
+    status.SetToFormat("0 of %ld", (long)total);
+    SetStatusText(status.String());
+    StartLoadingDots();
+    
+    // Prepare thread data
+    fBodySearchStopFlag = std::make_shared<volatile bool>(false);
+    
+    BodySearchData* data = new BodySearchData();
+    data->messenger = BMessenger(this);
+    data->stopFlag = fBodySearchStopFlag;
+    data->currentQueryId = &fCurrentQueryId;
+    data->queryId = fCurrentQueryId;
+    data->searchText = searchText;
+    data->caseSensitive = caseSensitive;
+    data->fullText = fullText;
+    
+    // Transfer refs to thread data
+    for (int32 i = 0; i < refs.CountItems(); i++)
+        data->refs.AddItem(refs.ItemAt(i));
+    
+    fBodySearchThread = spawn_thread(_BodySearchThread, "body_search",
+        B_NORMAL_PRIORITY, data);
+    if (fBodySearchThread >= 0) {
+        resume_thread(fBodySearchThread);
+    } else {
+        // Failed to spawn thread — clean up
+        for (int32 i = 0; i < data->refs.CountItems(); i++)
+            delete (entry_ref*)data->refs.ItemAt(i);
+        delete data;
+        StopLoadingDots();
+        _SendLoadingUpdate(false, true);
+    }
+}
+
+
+void
+EmailListView::StopBodySearch()
+{
+    if (fBodySearchStopFlag)
+        *fBodySearchStopFlag = true;
+    if (fBodySearchThread >= 0) {
+        status_t result;
+        wait_for_thread(fBodySearchThread, &result);
+        fBodySearchThread = -1;
+    }
+}
+
+
+/*static*/ int32
+EmailListView::_BodySearchThread(void* data)
+{
+    BodySearchData* searchData = (BodySearchData*)data;
+    
+    BMessenger messenger = searchData->messenger;
+    volatile bool* stopFlag = searchData->stopFlag.get();
+    volatile int32* currentQueryId = searchData->currentQueryId;
+    int32 queryId = searchData->queryId;
+    BString searchText = searchData->searchText;
+    bool caseSensitive = searchData->caseSensitive;
+    bool fullText = searchData->fullText;
+    
+    #define BODY_IS_STALE() (*stopFlag || *currentQueryId != queryId)
+    
+    int32 total = searchData->refs.CountItems();
+    int32 scanned = 0;
+    
+    // No batching — each match is sent immediately so it appears in the
+    // list as soon as it's found. AddEmailSorted uses CopyBits to shift
+    // existing rows and only draws the new row, so this is flicker-free.
+    
+    for (int32 i = 0; i < total; i++) {
+        if (BODY_IS_STALE())
+            break;
+        
+        entry_ref* ref = (entry_ref*)searchData->refs.ItemAt(i);
+        if (ref == NULL)
+            continue;
+        
+        bool matched = false;
+        
+        // Full-text mode: check header attributes first (fast path)
+        if (fullText) {
+            EmailRef headerRef(*ref);
+            
+            if (caseSensitive) {
+                if (headerRef.from.FindFirst(searchText) >= 0
+                    || headerRef.to.FindFirst(searchText) >= 0
+                    || headerRef.subject.FindFirst(searchText) >= 0
+                    || headerRef.account.FindFirst(searchText) >= 0) {
+                    matched = true;
+                }
+            } else {
+                if (headerRef.from.IFindFirst(searchText) >= 0
+                    || headerRef.to.IFindFirst(searchText) >= 0
+                    || headerRef.subject.IFindFirst(searchText) >= 0
+                    || headerRef.account.IFindFirst(searchText) >= 0) {
+                    matched = true;
+                }
+            }
+        }
+        
+        // Search the body text (skip if already matched via headers)
+        if (!matched) {
+            BString bodyText;
+            if (ExtractBodyText(*ref, &bodyText) && bodyText.Length() > 0) {
+                if (caseSensitive) {
+                    if (bodyText.FindFirst(searchText) >= 0)
+                        matched = true;
+                } else {
+                    if (bodyText.IFindFirst(searchText) >= 0)
+                        matched = true;
+                }
+            }
+        }
+        
+        scanned++;
+        
+        // Send match immediately
+        if (matched && !BODY_IS_STALE()) {
+            BMessage msg(kMsgBodySearchBatch);
+            msg.AddInt32("queryId", queryId);
+            msg.AddInt32("scanned", scanned);
+            msg.AddPointer("emailref", new EmailRef(*ref));
+            messenger.SendMessage(&msg);
+        }
+        
+        // Send progress update periodically (every 50 emails)
+        if ((scanned % 50) == 0 && !BODY_IS_STALE()) {
+            BMessage progress(kMsgBodySearchProgress);
+            progress.AddInt32("queryId", queryId);
+            progress.AddInt32("scanned", scanned);
+            messenger.SendMessage(&progress);
+        }
+    }
+    
+    // Send completion
+    if (!BODY_IS_STALE()) {
+        BMessage done(kMsgBodySearchDone);
+        done.AddInt32("queryId", queryId);
+        done.AddInt32("scanned", scanned);
+        messenger.SendMessage(&done);
+    }
+    
+    #undef BODY_IS_STALE
+    
+    // Clean up refs
+    for (int32 i = 0; i < searchData->refs.CountItems(); i++)
+        delete (entry_ref*)searchData->refs.ItemAt(i);
+    
+    delete searchData;
+    return 0;
 }
 
 

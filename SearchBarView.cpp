@@ -206,6 +206,7 @@ SearchBarView::SearchBarView(BMessage* searchMessage, BMessage* clearMessage,
 	fAddQueryMessage(addQueryMessage),
 	fBackupMessage(backupMessage),
 	fClearIcon(NULL),
+	fStopIcon(NULL),
 	fAddQueryIcon(NULL),
 	fBackupIcon(NULL),
 	fSearchDebounceRunner(NULL),
@@ -237,6 +238,9 @@ SearchBarView::SearchBarView(BMessage* searchMessage, BMessage* clearMessage,
 	menu->AddItem(new BMenuItem(B_TRANSLATE("From"), new BMessage(MSG_SEARCH_ATTRIBUTE)));
 	menu->AddItem(new BMenuItem(B_TRANSLATE("To"), new BMessage(MSG_SEARCH_ATTRIBUTE)));
 	menu->AddItem(new BMenuItem(B_TRANSLATE("Account"), new BMessage(MSG_SEARCH_ATTRIBUTE)));
+	menu->AddSeparatorItem();
+	menu->AddItem(new BMenuItem(B_TRANSLATE("Body"), new BMessage(MSG_SEARCH_ATTRIBUTE)));
+	menu->AddItem(new BMenuItem(B_TRANSLATE("Full text"), new BMessage(MSG_SEARCH_ATTRIBUTE)));
 	menu->ItemAt(0)->SetMarked(true);  // Default to "Subject"
 
 	// Create menu field with "Filter by" label
@@ -331,6 +335,7 @@ SearchBarView::~SearchBarView()
 	delete fSearchDebounceRunner;
 	delete fBackupDotsRunner;
 	delete fClearIcon;
+	delete fStopIcon;
 	delete fAddQueryIcon;
 	delete fBackupIcon;
 	// Note: searchMessage was passed to fTextControl which takes ownership
@@ -372,6 +377,17 @@ SearchBarView::_LoadIcons()
 		} else {
 			delete fClearIcon;
 			fClearIcon = NULL;
+		}
+	}
+
+	// Load stop/abort icon (same size as clear icon)
+	data = resources->LoadResource(B_VECTOR_ICON_TYPE, "StopSearch", &size);
+	if (data != NULL) {
+		int clearIconSize = 16;
+		fStopIcon = new BBitmap(BRect(0, 0, clearIconSize - 1, clearIconSize - 1), B_RGBA32);
+		if (BIconUtils::GetVectorIcon((const uint8*)data, size, fStopIcon) != B_OK) {
+			delete fStopIcon;
+			fStopIcon = NULL;
 		}
 	}
 
@@ -477,9 +493,19 @@ SearchBarView::MessageReceived(BMessage* message)
 			BMenuItem* item = fAttributeMenu->Menu()->FindMarked();
 			if (item) {
 				int32 index = fAttributeMenu->Menu()->IndexOf(item);
-				// Menu order: Subject(0), From(1), To(2), Account(3)
-				// Enum order: SEARCH_SUBJECT(1), SEARCH_FROM(2), SEARCH_TO(3), SEARCH_ACCOUNT(4)
-				fSearchAttribute = (SearchAttribute)(index + 1);
+				// Menu layout: Subject(0), From(1), To(2), Account(3),
+				//              separator(4), Body(5), Full text(6)
+				switch (index) {
+					case 0: fSearchAttribute = SEARCH_SUBJECT;  break;
+					case 1: fSearchAttribute = SEARCH_FROM;     break;
+					case 2: fSearchAttribute = SEARCH_TO;       break;
+					case 3: fSearchAttribute = SEARCH_ACCOUNT;  break;
+					case 5: fSearchAttribute = SEARCH_BODY;     break;
+					case 6: fSearchAttribute = SEARCH_FULLTEXT; break;
+					default: break;
+				}
+				// Redraw + button immediately (disabled for body/full-text)
+				Invalidate(_AddQueryButtonRect());
 			}
 			// Re-execute search if there's text - post MSG_SEARCH_MODIFIED
 			if (HasText() && Window())
@@ -657,12 +683,33 @@ SearchBarView::SetBackupActive(bool active)
 
 
 void
+SearchBarView::SetBodySearchRunning(bool running)
+{
+	if (fClearButton == NULL)
+		return;
+
+	if (running) {
+		if (fStopIcon != NULL)
+			fClearButton->SetIcon(fStopIcon);
+		fClearButton->SetToolTip(B_TRANSLATE("Abort search"));
+		fClearButton->SetEnabled(true);
+	} else {
+		if (fClearIcon != NULL)
+			fClearButton->SetIcon(fClearIcon);
+		fClearButton->SetToolTip(B_TRANSLATE("Clear search box"));
+		_UpdateClearButtonState();  // Re-evaluate enabled state based on text
+	}
+}
+
+
+void
 SearchBarView::Draw(BRect updateRect)
 {
 	BView::Draw(updateRect);
 
-	// Draw add query button (+) - enabled when there's text and results
-	bool addQueryEnabled = HasText() && fHasResults;
+	// Draw add query button (+) - enabled when there's text and results,
+	// but disabled for body/full-text search (can't be saved as a BFS query)
+	bool addQueryEnabled = HasText() && fHasResults && !IsBodySearch();
 	if (fAddQueryIcon != NULL) {
 		BRect addRect = _AddQueryButtonRect();
 		if (addRect.IsValid()) {
@@ -731,7 +778,8 @@ void
 SearchBarView::MouseDown(BPoint where)
 {
 	// Check add query button first - enabled when there's text and results
-	if (HasText() && fHasResults) {
+	// (disabled for body/full-text search — can't be saved as a BFS query)
+	if (HasText() && fHasResults && !IsBodySearch()) {
 		BRect addRect = _AddQueryButtonRect();
 		if (addRect.Contains(where)) {
 			if (fAddQueryMessage && Window()) {
@@ -760,7 +808,7 @@ bool
 SearchBarView::GetToolTipAt(BPoint point, BToolTip** _tip)
 {
 	// Check if over add query button - only show tooltip if enabled
-	if (HasText() && fHasResults) {
+	if (HasText() && fHasResults && !IsBodySearch()) {
 		BRect addRect = _AddQueryButtonRect();
 		if (addRect.Contains(point)) {
 			SetToolTip(B_TRANSLATE("Create query based on search criteria"));
@@ -809,11 +857,14 @@ SearchBarView::SetSearchAttribute(SearchAttribute attr)
 
 	int32 index = -1;
 	switch (attr) {
-		case SEARCH_SUBJECT: index = 0; break;
-		case SEARCH_FROM:    index = 1; break;
-		case SEARCH_TO:      index = 2; break;
-		case SEARCH_ACCOUNT: index = 3; break;
-		case SEARCH_THREAD:  index = 0; break;  // Show "Subject" for thread filtering
+		case SEARCH_SUBJECT:  index = 0; break;
+		case SEARCH_FROM:     index = 1; break;
+		case SEARCH_TO:       index = 2; break;
+		case SEARCH_ACCOUNT:  index = 3; break;
+		// index 4 = separator
+		case SEARCH_BODY:     index = 5; break;
+		case SEARCH_FULLTEXT: index = 6; break;
+		case SEARCH_THREAD:   index = 0; break;  // Show "Subject" for thread filtering
 		default: break;
 	}
 

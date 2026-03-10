@@ -32,7 +32,9 @@ enum SearchAttribute {
 	SEARCH_FROM,
 	SEARCH_TO,
 	SEARCH_ACCOUNT,
-	SEARCH_THREAD
+	SEARCH_THREAD,
+	SEARCH_BODY,
+	SEARCH_FULLTEXT
 };
 
 // Message for attribute menu selection
@@ -102,6 +104,9 @@ public:
 	void SetViewHasContent(bool hasContent);
 	void SetLoading(bool loading);
 	SearchAttribute GetSearchAttribute() const { return fSearchAttribute; }
+	bool IsBodySearch() const
+		{ return fSearchAttribute == SEARCH_BODY
+			|| fSearchAttribute == SEARCH_FULLTEXT; }
 
 	// Exact match filter support
 	void SetMatchesMode(bool matches);
@@ -111,6 +116,9 @@ public:
 	// Backup progress animation
 	void SetBackupActive(bool active);
 	bool IsBackupActive() const { return fBackupActive; }
+
+	// Body search state — swaps clear button icon/tooltip
+	void SetBodySearchRunning(bool running);
 
 	// Email count status and loading indicator
 
@@ -129,6 +137,7 @@ private:
 	BMessage* fAddQueryMessage;
 	BMessage* fBackupMessage;
 	BBitmap* fClearIcon;
+	BBitmap* fStopIcon;
 	BBitmap* fAddQueryIcon;
 	BBitmap* fBackupIcon;
 	BMessageRunner* fSearchDebounceRunner;

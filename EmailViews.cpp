@@ -733,6 +733,9 @@ EmailViewsWindow::EmailViewsWindow()
       fCachedTrashCount(-1),
       fSearchField(NULL),
       fIsSearchActive(false),
+      fPendingBodySearch(false),
+      fPendingBodySearchCaseSensitive(false),
+      fPendingBodySearchFullText(false),
       fTimeRangeSlider(NULL),
       fTimeRangeLabel(NULL),
       fTimeRangeGroup(NULL),
@@ -1839,11 +1842,16 @@ void EmailViewsWindow::ApplySearchFilter()
     BString searchText = fSearchField->Text();
     searchText.Trim();
     
-    // Build search predicate based on selected attribute and match mode
+    // Check if this is a body or full-text search
+    SearchAttribute attr = fSearchField->GetSearchAttribute();
+    bool isBodySearch = (attr == SEARCH_BODY || attr == SEARCH_FULLTEXT);
+    
+    // Build search predicate based on selected attribute and match mode.
+    // For body/full-text search, no BFS predicate is built — the search
+    // runs as a second pass after the BFS query populates the list.
     BString searchPredicate;
     
-    if (searchText.Length() > 0) {
-        SearchAttribute attr = fSearchField->GetSearchAttribute();
+    if (searchText.Length() > 0 && !isBodySearch) {
         bool matchesMode = fSearchField->IsMatchesMode();
         
         if (matchesMode) {
@@ -1971,12 +1979,31 @@ void EmailViewsWindow::ApplySearchFilter()
     fIsSearchActive = (searchText.Length() > 0) || 
                       (fTimeRangeSlider && !fTimeRangeSlider->IsFullRange());
     
+    // Set up pending body search if needed. The body search will launch
+    // automatically when the BFS query completes (in kMsgLoadingUpdate).
+    if (isBodySearch && searchText.Length() > 0) {
+        fPendingBodySearch = true;
+        fPendingBodySearchText = searchText;
+        fPendingBodySearchCaseSensitive = fSearchField->IsMatchesMode();
+        fPendingBodySearchFullText = (attr == SEARCH_FULLTEXT);
+    } else {
+        fPendingBodySearch = false;
+        fPendingBodySearchText.SetTo("");
+    }
+    
     // Clear existing emails - new items will appear immediately via two-phase loading
     fEmailList->Clear();
     
-    // Show the email list card directly (items will populate as they're found)
-    if (fEmailListCardView != NULL)
-        fEmailListCardView->CardLayout()->SetVisibleItem((int32)1);
+    // Show appropriate card during loading.
+    // For body/full-text search, keep the empty card visible during the BFS
+    // loading phase so the full list doesn't flash before being replaced.
+    if (fEmailListCardView != NULL) {
+        if (fPendingBodySearch) {
+            ShowEmptyListMessage(B_TRANSLATE("Searching" B_UTF8_ELLIPSIS));
+        } else {
+            fEmailListCardView->CardLayout()->SetVisibleItem((int32)1);
+        }
+    }
     
     // Clear the preview pane when switching folders
     ClearPreviewPane();
@@ -4372,8 +4399,10 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
             message->FindBool("complete", &complete);
             
             if (!complete) {
-                // Update status bar with running count during loading
-                UpdateEmailCountLabel();
+                // Update status bar with running count during loading.
+                // Skip during body search — its own handlers manage the status text.
+                if (!fEmailList->IsBodySearchRunning())
+                    UpdateEmailCountLabel();
                 
                 // Start loading dots only during an actual load, not on
                 // lightweight count-change notifications from live queries.
@@ -4385,8 +4414,10 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
                 // Signal loading in progress (disables backup button)
                 fSearchField->SetLoading(true);
                 
-                // Switch to email list view as soon as content arrives
-                if (fEmailList->CountItems() > 0) {
+                // Switch to email list view as soon as content arrives.
+                // Skip this during BFS loading when a body search is pending
+                // — the full list would flash before being replaced.
+                if (fEmailList->CountItems() > 0 && !fPendingBodySearch) {
                     ShowEmailListContent();
                     if (!fShowTrashOnly)
                         fSearchField->SetViewHasContent(true);
@@ -4399,9 +4430,35 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
             }
             
             if (complete) {
+                // Check if a body search is pending (BFS query was just the
+                // first phase to populate the search scope).
+                if (fPendingBodySearch && fPendingBodySearchText.Length() > 0) {
+                    fPendingBodySearch = false;
+                    
+                    if (fEmailList->CountItems() == 0) {
+                        // Nothing to search — go straight to empty result
+                        fEmailList->StopLoadingDots();
+                        fSearchField->SetLoading(false);
+                        fSearchField->SetHasResults(false);
+                        ShowEmptyListMessage(B_TRANSLATE("No emails match your search."));
+                        UpdateEmailCountLabel();
+                    } else {
+                        // Launch body search on the populated list.
+                        // Don't stop loading dots — body search will keep them going.
+                        fSearchField->SetSearchExecuted(true);
+                        fSearchField->SetBodySearchRunning(true);
+                        fEmailList->StartBodySearch(
+                            fPendingBodySearchText.String(),
+                            fPendingBodySearchCaseSensitive,
+                            fPendingBodySearchFullText);
+                    }
+                    break;
+                }
+                
                 // Loading finished — stop loading dots and re-enable backup button
                 fEmailList->StopLoadingDots();
                 fSearchField->SetLoading(false);
+                fSearchField->SetBodySearchRunning(false);
                 
                 if (fIsSearchActive) {
                     fSearchField->SetHasResults(fEmailList->CountItems() > 0);
@@ -4420,6 +4477,27 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
                 
                 UpdateEmailCountLabel();
                 ScheduleQueryCountUpdate();
+                
+                // After a body/full-text search completes, override the
+                // status text from "N emails" to "N found" so it's clear
+                // these are search results, not the full list.
+                if (fSearchField->IsBodySearch() && fIsSearchActive) {
+                    int32 count = fEmailList->CountItems();
+                    BString label;
+                    if (count == 1)
+                        label = B_TRANSLATE("1 email found");
+                    else {
+                        BString countStr;
+                        if (count >= 1000)
+                            countStr.SetToFormat("%ld,%03ld",
+                                (long)(count / 1000), (long)(count % 1000));
+                        else
+                            countStr.SetToFormat("%ld", (long)count);
+                        label.SetToFormat(B_TRANSLATE("%s emails found"),
+                            countStr.String());
+                    }
+                    fEmailList->SetStatusText(label.String());
+                }
                 
                 // Give the email list keyboard focus when loading completes
                 // so Alt+A and keyboard navigation work without requiring a click
@@ -5546,6 +5624,26 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
         }
         
         case MSG_SEARCH_CLEAR: {
+            // If a body search is running, abort it first (keep results).
+            // The user presses × again to clear the search entirely.
+            if (fEmailList->IsBodySearchRunning()) {
+                fEmailList->StopBodySearch();
+                fEmailList->StopLoadingDots();
+                fSearchField->SetLoading(false);
+                fSearchField->SetBodySearchRunning(false);
+                fSearchField->SetHasResults(fEmailList->CountItems() > 0);
+                UpdateEmailCountLabel();
+                if (fEmailList->CountItems() == 0)
+                    ShowEmptyListMessage(B_TRANSLATE("No emails match your search."));
+                else
+                    ShowEmailListContent();
+                break;
+            }
+            
+            // Also cancel any pending body search that hasn't started yet
+            fPendingBodySearch = false;
+            fPendingBodySearchText.SetTo("");
+            
             bool wasSearchExecuted = fSearchField->IsSearchExecuted();
             fSearchField->SetText("");
             fSearchField->SetSearchExecuted(false);
