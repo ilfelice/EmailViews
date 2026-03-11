@@ -357,10 +357,11 @@ SearchBarView::~SearchBarView()
 	delete fAddQueryIcon;
 	delete fBodyClearIcon;
 	delete fBodyStopIcon;
-	// Note: searchMessage was passed to fTextControl which takes ownership
+	// Note: searchMessage and bodySearchMessage were passed to their
+	// respective SearchTextControl/PlaceholderTextView which take ownership.
+	// Do NOT delete them here.
 	delete fClearMessage;
 	delete fAddQueryMessage;
-	delete fBodySearchMessage;
 	delete fBodyClearMessage;
 }
 

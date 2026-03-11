@@ -158,7 +158,9 @@ public:
     
     void                StartBodySearch(const char* searchText,
                                         bool caseSensitive,
-                                        bool fullText);
+                                        bool fullText,
+                                        bool keepExisting = false,
+                                        BList* externalScope = NULL);
     void                StopBodySearch();
     bool                IsBodySearchRunning() const
                             { return fBodySearchThread >= 0; }

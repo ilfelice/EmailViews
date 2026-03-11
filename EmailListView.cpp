@@ -4637,12 +4637,13 @@ struct BodySearchData {
     bool                caseSensitive;
     bool                fullText;      // true = check headers first
     BList               refs;          // List of entry_ref* (owned, thread frees them)
+    std::unordered_set<node_ref, NodeRefHash, NodeRefEqual> skipNodes;  // Already-matched nodes to skip
 };
 
 
 void
 EmailListView::StartBodySearch(const char* searchText, bool caseSensitive,
-    bool fullText)
+    bool fullText, bool keepExisting, BList* externalScope)
 {
     if (searchText == NULL || searchText[0] == '\0')
         return;
@@ -4650,13 +4651,22 @@ EmailListView::StartBodySearch(const char* searchText, bool caseSensitive,
     // Stop any running body search
     StopBodySearch();
     
-    // Snapshot the current list as entry_refs (before clearing).
-    // This is the search scope — whatever the BFS query loaded.
+    // Build the search scope. If an external scope is provided (e.g. the
+    // full BFS result set saved before re-adding preserved matches), use
+    // that. Otherwise snapshot the current list.
     BList refs;
-    for (int32 i = 0; i < fItems.CountItems(); i++) {
-        EmailItem* item = fItems.ItemAt(i);
-        if (item != NULL && item->Ref() != NULL)
-            refs.AddItem(new entry_ref(item->Ref()->entryRef));
+    if (externalScope != NULL) {
+        for (int32 i = 0; i < externalScope->CountItems(); i++) {
+            entry_ref* ref = (entry_ref*)externalScope->ItemAt(i);
+            if (ref != NULL)
+                refs.AddItem(new entry_ref(*ref));
+        }
+    } else {
+        for (int32 i = 0; i < fItems.CountItems(); i++) {
+            EmailItem* item = fItems.ItemAt(i);
+            if (item != NULL && item->Ref() != NULL)
+                refs.AddItem(new entry_ref(item->Ref()->entryRef));
+        }
     }
     
     int32 total = refs.CountItems();
@@ -4669,13 +4679,24 @@ EmailListView::StartBodySearch(const char* searchText, bool caseSensitive,
     // Stop live queries — they'd add items during the search
     _StopLiveQueries();
     
-    // Clear the list for filter-in display
-    MakeEmpty();
+    // Build a set of node_refs for items to skip (only when keeping
+    // existing matches from a previous search). When keepExisting is
+    // false, clear the list and scan everything.
+    std::unordered_set<node_ref, NodeRefHash, NodeRefEqual> skipNodes;
+    if (keepExisting) {
+        for (int32 i = 0; i < fItems.CountItems(); i++) {
+            EmailItem* item = fItems.ItemAt(i);
+            if (item != NULL && item->Ref() != NULL)
+                skipNodes.insert(item->Ref()->nodeRef);
+        }
+    } else {
+        MakeEmpty();
+    }
     
-    // Reset counters
+    // Reset counters (scanned starts at the number we're skipping)
     fBodySearchTotal = total;
-    fBodySearchScanned = 0;
-    fBodySearchFound = 0;
+    fBodySearchScanned = (int32)skipNodes.size();
+    fBodySearchFound = fItems.CountItems();
     
     // Show initial status
     BString status;
@@ -4694,6 +4715,7 @@ EmailListView::StartBodySearch(const char* searchText, bool caseSensitive,
     data->searchText = searchText;
     data->caseSensitive = caseSensitive;
     data->fullText = fullText;
+    data->skipNodes = std::move(skipNodes);
     
     // Transfer refs to thread data
     for (int32 i = 0; i < refs.CountItems(); i++)
@@ -4762,6 +4784,14 @@ EmailListView::_BodySearchThread(void* data)
         // Full-text mode: check header attributes first (fast path)
         if (fullText) {
             EmailRef headerRef(*ref);
+            
+            // Skip emails already in the result list (carried over from
+            // a previous search with a narrower scope). Check here because
+            // EmailRef's constructor already resolved the node_ref.
+            if (searchData->skipNodes.count(headerRef.nodeRef) > 0) {
+                scanned++;
+                continue;
+            }
             
             if (caseSensitive) {
                 if (headerRef.from.FindFirst(searchText) >= 0

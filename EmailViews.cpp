@@ -4387,7 +4387,11 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
             if (!complete) {
                 // Update status bar with running count during loading.
                 // Skip during body search — its own handlers manage the status text.
-                if (!fEmailList->IsBodySearchRunning())
+                // When a body search is pending, show "Loading..." instead of
+                // the email count to avoid the confusing count→search transition.
+                if (fPendingBodySearch)
+                    fEmailList->SetStatusText(B_TRANSLATE("Loading" B_UTF8_ELLIPSIS));
+                else if (!fEmailList->IsBodySearchRunning())
                     UpdateEmailCountLabel();
                 
                 // Start loading dots only during an actual load, not on
@@ -4426,17 +4430,80 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
                         fEmailList->StopLoadingDots();
                         fSearchField->SetLoading(false);
                         fSearchField->SetHasResults(false);
+                        fPreservedSearchMatches.clear();
                         ShowEmptyListMessage(B_TRANSLATE("No emails match your search."));
                         UpdateEmailCountLabel();
                     } else {
-                        // Launch body search on the populated list.
-                        // Don't stop loading dots — body search will keep them going.
-                        fSearchField->SetSearchExecuted(true);
-                        fSearchField->SetBodySearchRunning(true);
-                        fEmailList->StartBodySearch(
-                            fPendingBodySearchText.String(),
-                            fPendingBodySearchCaseSensitive,
-                            fPendingBodySearchFullText);
+                        bool hasPreserved = !fPreservedSearchMatches.empty();
+                        
+                        if (hasPreserved) {
+                            // Snapshot the full BFS scope BEFORE clearing the
+                            // list. StartBodySearch will snapshot fItems as the
+                            // scope, so we need fItems to contain the full BFS
+                            // results when it's called. But we also want the
+                            // display to show only the preserved matches.
+                            //
+                            // Strategy: call StartBodySearch first (which
+                            // snapshots the full scope and sets up the skip
+                            // set from preserved matches that we pre-load),
+                            // but we need the preserved items in the list first.
+                            //
+                            // Correct order:
+                            // 1. Build a skip set from preserved node_refs
+                            // 2. Snapshot the full BFS scope as entry_refs
+                            // 3. Clear the list and re-add preserved matches
+                            // 4. Pass the full scope + skip set to the thread
+                            
+                            // Step 1: Build skip set
+                            std::unordered_set<node_ref, NodeRefHash, NodeRefEqual> preservedSet(
+                                fPreservedSearchMatches.begin(),
+                                fPreservedSearchMatches.end());
+                            
+                            // Step 2: Snapshot full BFS scope
+                            BList fullScope;
+                            for (int32 i = 0; i < fEmailList->CountItems(); i++) {
+                                EmailItem* item = fEmailList->ItemAt(i);
+                                if (item != NULL && item->Ref() != NULL)
+                                    fullScope.AddItem(new entry_ref(item->Ref()->entryRef));
+                            }
+                            
+                            // Step 3: Collect preserved matches, clear, re-add
+                            std::vector<EmailRef*> keepRefs;
+                            for (int32 i = 0; i < fEmailList->CountItems(); i++) {
+                                EmailItem* item = fEmailList->ItemAt(i);
+                                if (item != NULL && item->Ref() != NULL
+                                    && preservedSet.count(item->Ref()->nodeRef) > 0) {
+                                    keepRefs.push_back(new EmailRef(item->Ref()->entryRef));
+                                }
+                            }
+                            fEmailList->MakeEmpty();
+                            for (size_t i = 0; i < keepRefs.size(); i++)
+                                fEmailList->AddEmailSorted(keepRefs[i]);
+                            
+                            ShowEmailListContent();
+                            fPreservedSearchMatches.clear();
+                            
+                            // Step 4: Launch body search with full scope
+                            fSearchField->SetSearchExecuted(true);
+                            fSearchField->SetBodySearchRunning(true);
+                            fEmailList->StartBodySearch(
+                                fPendingBodySearchText.String(),
+                                fPendingBodySearchCaseSensitive,
+                                fPendingBodySearchFullText,
+                                true, &fullScope);
+                            
+                            // Clean up scope refs (StartBodySearch copied them)
+                            for (int32 i = 0; i < fullScope.CountItems(); i++)
+                                delete (entry_ref*)fullScope.ItemAt(i);
+                        } else {
+                            // No preserved matches — fresh search
+                            fSearchField->SetSearchExecuted(true);
+                            fSearchField->SetBodySearchRunning(true);
+                            fEmailList->StartBodySearch(
+                                fPendingBodySearchText.String(),
+                                fPendingBodySearchCaseSensitive,
+                                fPendingBodySearchFullText);
+                        }
                     }
                     break;
                 }
@@ -5602,7 +5669,32 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
         }
         
         case MSG_SEARCH_MODIFIED: {
+            // If body search field has text, save current matches before
+            // the BFS reload, then set up a pending body search.
+            BString bodyText = fSearchField->BodySearchText();
+            bodyText.Trim();
+            
+            fPreservedSearchMatches.clear();
+            if (bodyText.Length() > 0) {
+                for (int32 i = 0; i < fEmailList->CountItems(); i++) {
+                    EmailItem* item = fEmailList->ItemAt(i);
+                    if (item != NULL && item->Ref() != NULL)
+                        fPreservedSearchMatches.push_back(item->Ref()->nodeRef);
+                }
+            }
+            
             ApplySearchFilter();
+            
+            // Set up pending body search AFTER ApplySearchFilter
+            if (bodyText.Length() > 0) {
+                fPendingBodySearch = true;
+                fPendingBodySearchText = bodyText;
+                fPendingBodySearchCaseSensitive = false;
+                fPendingBodySearchFullText = true;
+                fIsSearchActive = true;
+                fSearchField->SetBodySearchRunning(true);
+            }
+            
             // Keep focus in filter field if text is empty (user cleared it)
             if (!fSearchField->HasText())
                 fSearchField->TextView()->MakeFocus(true);
@@ -5610,14 +5702,44 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
         }
         
         case MSG_SEARCH_CLEAR: {
-            // Filter clear button — reset the filter field and reload
+            // Filter clear button — reset the filter field and reload.
+            // If the body search field still has text, set up a pending
+            // body search so it re-runs on the new (broader) result set.
+            // Preserve current matches so they appear instantly.
             bool wasSearchExecuted = fSearchField->IsSearchExecuted();
             fSearchField->SetText("");
             fSearchField->SetSearchExecuted(false);
             fSearchField->SetMatchesMode(false);  // Reset to "contains" mode
-            // Only reload if a filter was actually active
-            if (wasSearchExecuted)
+            
+            if (wasSearchExecuted) {
+                // If body search field has text, save current matches before
+                // the BFS reload wipes them. They'll be re-added after the
+                // reload so the user sees instant results.
+                BString bodyText = fSearchField->BodySearchText();
+                bodyText.Trim();
+                
+                fPreservedSearchMatches.clear();
+                if (bodyText.Length() > 0) {
+                    for (int32 i = 0; i < fEmailList->CountItems(); i++) {
+                        EmailItem* item = fEmailList->ItemAt(i);
+                        if (item != NULL && item->Ref() != NULL)
+                            fPreservedSearchMatches.push_back(item->Ref()->nodeRef);
+                    }
+                }
+                
                 ApplySearchFilter();
+                
+                // Set up pending body search AFTER ApplySearchFilter
+                // (which clears the pending state).
+                if (bodyText.Length() > 0) {
+                    fPendingBodySearch = true;
+                    fPendingBodySearchText = bodyText;
+                    fPendingBodySearchCaseSensitive = false;
+                    fPendingBodySearchFullText = true;
+                    fIsSearchActive = true;
+                    fSearchField->SetBodySearchRunning(true);
+                }
+            }
             fSearchField->TextView()->MakeFocus(true);
             break;
         }

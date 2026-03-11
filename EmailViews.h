@@ -336,6 +336,12 @@ private:
     bool fPendingBodySearchCaseSensitive;
     bool fPendingBodySearchFullText;
     
+    // Node refs of previous body search matches to preserve across a
+    // BFS reload (e.g. when clearing the filter while a search is active).
+    // These are re-added to the list before the body search thread starts,
+    // and the thread skips them to avoid duplicate scanning.
+    std::vector<node_ref> fPreservedSearchMatches;
+    
     // Time range filter
     TimeRangeSlider* fTimeRangeSlider;
     BStringView* fTimeRangeLabel;
