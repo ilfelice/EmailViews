@@ -1974,13 +1974,25 @@ void EmailViewsWindow::ApplySearchFilter()
     // Attachments filtering is handled by StartQuery's attachmentsOnly parameter
     
     // Determine if any filter is active
-    fIsSearchActive = (searchText.Length() > 0) || 
+    BString bodyText = fSearchField->BodySearchText();
+    bodyText.Trim();
+    bool hasBodySearch = (bodyText.Length() > 0);
+    
+    fIsSearchActive = (searchText.Length() > 0) || hasBodySearch ||
                       (fTimeRangeSlider && !fTimeRangeSlider->IsFullRange());
     
-    // Body search is no longer triggered from here — it has its own
-    // dedicated search field and message handler (MSG_BODY_SEARCH_INVOKED).
-    fPendingBodySearch = false;
-    fPendingBodySearchText.SetTo("");
+    // If the body search field has text, save current matches and set up
+    // a pending body search that will run after the BFS query completes.
+    // This ensures filter + body search always work as a pipeline.
+    fPreservedSearchMatches.clear();
+    if (hasBodySearch) {
+        // Save current matches for instant display after reload
+        for (int32 i = 0; i < fEmailList->CountItems(); i++) {
+            EmailItem* item = fEmailList->ItemAt(i);
+            if (item != NULL && item->Ref() != NULL)
+                fPreservedSearchMatches.push_back(item->Ref()->nodeRef);
+        }
+    }
     
     // Clear existing emails - new items will appear immediately via two-phase loading
     fEmailList->Clear();
@@ -1995,6 +2007,20 @@ void EmailViewsWindow::ApplySearchFilter()
     // Execute the query via the new EmailListView component
     fEmailList->SetSpamBlocklist(fSpamBlocklist);
     fEmailList->StartQuery(fullQuery.String(), &fSelectedVolumes, fShowTrashOnly, fShowSpamOnly, fAttachmentsOnly);
+    
+    // Set up pending body search AFTER StartQuery (which may clear state).
+    // The pending body search will launch when the BFS query completes
+    // (in the kMsgLoadingUpdate handler).
+    if (hasBodySearch) {
+        fPendingBodySearch = true;
+        fPendingBodySearchText = bodyText;
+        fPendingBodySearchCaseSensitive = false;
+        fPendingBodySearchFullText = true;
+        fSearchField->SetBodySearchRunning(true);
+    } else {
+        fPendingBodySearch = false;
+        fPendingBodySearchText.SetTo("");
+    }
 }
 
 void EmailViewsWindow::ApplyTimeRangeFilter()
@@ -5669,32 +5695,7 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
         }
         
         case MSG_SEARCH_MODIFIED: {
-            // If body search field has text, save current matches before
-            // the BFS reload, then set up a pending body search.
-            BString bodyText = fSearchField->BodySearchText();
-            bodyText.Trim();
-            
-            fPreservedSearchMatches.clear();
-            if (bodyText.Length() > 0) {
-                for (int32 i = 0; i < fEmailList->CountItems(); i++) {
-                    EmailItem* item = fEmailList->ItemAt(i);
-                    if (item != NULL && item->Ref() != NULL)
-                        fPreservedSearchMatches.push_back(item->Ref()->nodeRef);
-                }
-            }
-            
             ApplySearchFilter();
-            
-            // Set up pending body search AFTER ApplySearchFilter
-            if (bodyText.Length() > 0) {
-                fPendingBodySearch = true;
-                fPendingBodySearchText = bodyText;
-                fPendingBodySearchCaseSensitive = false;
-                fPendingBodySearchFullText = true;
-                fIsSearchActive = true;
-                fSearchField->SetBodySearchRunning(true);
-            }
-            
             // Keep focus in filter field if text is empty (user cleared it)
             if (!fSearchField->HasText())
                 fSearchField->TextView()->MakeFocus(true);
@@ -5702,44 +5703,14 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
         }
         
         case MSG_SEARCH_CLEAR: {
-            // Filter clear button — reset the filter field and reload.
-            // If the body search field still has text, set up a pending
-            // body search so it re-runs on the new (broader) result set.
-            // Preserve current matches so they appear instantly.
+            // Filter clear button — reset the filter field and reload
             bool wasSearchExecuted = fSearchField->IsSearchExecuted();
             fSearchField->SetText("");
             fSearchField->SetSearchExecuted(false);
             fSearchField->SetMatchesMode(false);  // Reset to "contains" mode
-            
-            if (wasSearchExecuted) {
-                // If body search field has text, save current matches before
-                // the BFS reload wipes them. They'll be re-added after the
-                // reload so the user sees instant results.
-                BString bodyText = fSearchField->BodySearchText();
-                bodyText.Trim();
-                
-                fPreservedSearchMatches.clear();
-                if (bodyText.Length() > 0) {
-                    for (int32 i = 0; i < fEmailList->CountItems(); i++) {
-                        EmailItem* item = fEmailList->ItemAt(i);
-                        if (item != NULL && item->Ref() != NULL)
-                            fPreservedSearchMatches.push_back(item->Ref()->nodeRef);
-                    }
-                }
-                
+            // Only reload if a filter was actually active
+            if (wasSearchExecuted)
                 ApplySearchFilter();
-                
-                // Set up pending body search AFTER ApplySearchFilter
-                // (which clears the pending state).
-                if (bodyText.Length() > 0) {
-                    fPendingBodySearch = true;
-                    fPendingBodySearchText = bodyText;
-                    fPendingBodySearchCaseSensitive = false;
-                    fPendingBodySearchFullText = true;
-                    fIsSearchActive = true;
-                    fSearchField->SetBodySearchRunning(true);
-                }
-            }
             fSearchField->TextView()->MakeFocus(true);
             break;
         }
