@@ -837,6 +837,8 @@ EmailViewsWindow::EmailViewsWindow()
     fUndoMenuItem = new BMenuItem(B_TRANSLATE("Undo Move to Trash"), new BMessage(MSG_UNDO_DELETE), 'Z');
     fUndoMenuItem->SetEnabled(false);
     messagesMenu->AddItem(fUndoMenuItem);
+    messagesMenu->AddSeparatorItem();
+    messagesMenu->AddItem(new BMenuItem(B_TRANSLATE("Backup emails to ZIP" B_UTF8_ELLIPSIS), new BMessage(MSG_BACKUP_EMAILS)));
     fMenuBar->AddItem(messagesMenu);
 
     // Create Filter menu
@@ -1061,11 +1063,12 @@ EmailViewsWindow::EmailViewsWindow()
         .Add(fPreviewCardView, 1.0f)
         .SetInsets(0);
     
-    // Create search bar with attribute dropdown and clear/add query/backup buttons
+    // Create search bar with attribute filter and body search field
     fSearchField = new SearchBarView(new BMessage(MSG_SEARCH_MODIFIED),
                                      new BMessage(MSG_SEARCH_CLEAR),
                                      new BMessage(MSG_SEARCH_ADD_QUERY),
-                                     new BMessage(MSG_BACKUP_EMAILS));
+                                     new BMessage(MSG_BODY_SEARCH_INVOKED),
+                                     new BMessage(MSG_BODY_SEARCH_CLEAR));
     fSearchField->SetExplicitMinSize(BSize(B_SIZE_UNSET, 26));
     fIsSearchActive = false;
     
@@ -1842,16 +1845,11 @@ void EmailViewsWindow::ApplySearchFilter()
     BString searchText = fSearchField->Text();
     searchText.Trim();
     
-    // Check if this is a body or full-text search
-    SearchAttribute attr = fSearchField->GetSearchAttribute();
-    bool isBodySearch = (attr == SEARCH_BODY || attr == SEARCH_FULLTEXT);
-    
     // Build search predicate based on selected attribute and match mode.
-    // For body/full-text search, no BFS predicate is built — the search
-    // runs as a second pass after the BFS query populates the list.
+    SearchAttribute attr = fSearchField->GetSearchAttribute();
     BString searchPredicate;
     
-    if (searchText.Length() > 0 && !isBodySearch) {
+    if (searchText.Length() > 0) {
         bool matchesMode = fSearchField->IsMatchesMode();
         
         if (matchesMode) {
@@ -1979,31 +1977,17 @@ void EmailViewsWindow::ApplySearchFilter()
     fIsSearchActive = (searchText.Length() > 0) || 
                       (fTimeRangeSlider && !fTimeRangeSlider->IsFullRange());
     
-    // Set up pending body search if needed. The body search will launch
-    // automatically when the BFS query completes (in kMsgLoadingUpdate).
-    if (isBodySearch && searchText.Length() > 0) {
-        fPendingBodySearch = true;
-        fPendingBodySearchText = searchText;
-        fPendingBodySearchCaseSensitive = fSearchField->IsMatchesMode();
-        fPendingBodySearchFullText = (attr == SEARCH_FULLTEXT);
-    } else {
-        fPendingBodySearch = false;
-        fPendingBodySearchText.SetTo("");
-    }
+    // Body search is no longer triggered from here — it has its own
+    // dedicated search field and message handler (MSG_BODY_SEARCH_INVOKED).
+    fPendingBodySearch = false;
+    fPendingBodySearchText.SetTo("");
     
     // Clear existing emails - new items will appear immediately via two-phase loading
     fEmailList->Clear();
     
-    // Show appropriate card during loading.
-    // For body/full-text search, keep the empty card visible during the BFS
-    // loading phase so the full list doesn't flash before being replaced.
-    if (fEmailListCardView != NULL) {
-        if (fPendingBodySearch) {
-            ShowEmptyListMessage(B_TRANSLATE("Searching" B_UTF8_ELLIPSIS));
-        } else {
-            fEmailListCardView->CardLayout()->SetVisibleItem((int32)1);
-        }
-    }
+    // Show email list card during loading
+    if (fEmailListCardView != NULL)
+        fEmailListCardView->CardLayout()->SetVisibleItem((int32)1);
     
     // Clear the preview pane when switching folders
     ClearPreviewPane();
@@ -3329,8 +3313,9 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
                     fEmailList->SetShowingTrash(false);
                     fEmailList->SetShowingSpam(false);
                     
-                    // Clear search field when switching folders (but keep time range)
+                    // Clear search fields when switching folders (but keep time range)
                     fSearchField->SetText("");
+                    fSearchField->SetBodySearchText("");
                     fSearchField->SetHasResults(false);
                     fIsSearchActive = false;
                     
@@ -3435,8 +3420,9 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
             // Start watching trash directory for file additions
             watch_node(&fTrashDirRef, B_WATCH_DIRECTORY, this);
             
-            // Clear search field when switching to trash
+            // Clear search fields when switching to trash
             fSearchField->SetText("");
+            fSearchField->SetBodySearchText("");
             fSearchField->SetHasResults(false);
             fIsSearchActive = false;
             
@@ -4478,10 +4464,10 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
                 UpdateEmailCountLabel();
                 ScheduleQueryCountUpdate();
                 
-                // After a body/full-text search completes, override the
+                // After a body search completes, override the
                 // status text from "N emails" to "N found" so it's clear
                 // these are search results, not the full list.
-                if (fSearchField->IsBodySearch() && fIsSearchActive) {
+                if (fSearchField->HasBodySearchText() && fIsSearchActive) {
                     int32 count = fEmailList->CountItems();
                     BString label;
                     if (count == 1)
@@ -5617,15 +5603,70 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
         
         case MSG_SEARCH_MODIFIED: {
             ApplySearchFilter();
-            // Keep focus in search field if text is empty (user cleared it)
+            // Keep focus in filter field if text is empty (user cleared it)
             if (!fSearchField->HasText())
                 fSearchField->TextView()->MakeFocus(true);
             break;
         }
         
         case MSG_SEARCH_CLEAR: {
+            // Filter clear button — reset the filter field and reload
+            bool wasSearchExecuted = fSearchField->IsSearchExecuted();
+            fSearchField->SetText("");
+            fSearchField->SetSearchExecuted(false);
+            fSearchField->SetMatchesMode(false);  // Reset to "contains" mode
+            // Only reload if a filter was actually active
+            if (wasSearchExecuted)
+                ApplySearchFilter();
+            fSearchField->TextView()->MakeFocus(true);
+            break;
+        }
+        
+        case MSG_BODY_SEARCH_INVOKED: {
+            // Body search Enter pressed — launch body search on current list.
+            // The body search runs as a second pass over whatever the current
+            // BFS query has loaded (respecting any active attribute filter).
+            BString bodyText = fSearchField->BodySearchText();
+            bodyText.Trim();
+            if (bodyText.Length() == 0)
+                break;
+            
+            // Stop any running body search first
+            if (fEmailList->IsBodySearchRunning()) {
+                fEmailList->StopBodySearch();
+                fEmailList->StopLoadingDots();
+            }
+            
+            // If a BFS query is still loading, set up a pending body search
+            // that will launch when the query completes.
+            if (fEmailList->IsLoading()) {
+                fPendingBodySearch = true;
+                fPendingBodySearchText = bodyText;
+                fPendingBodySearchCaseSensitive = false;  // Body search is always case-insensitive
+                fPendingBodySearchFullText = true;         // Always search headers + body
+                ShowEmptyListMessage(B_TRANSLATE("Searching" B_UTF8_ELLIPSIS));
+                fSearchField->SetBodySearchRunning(true);
+                break;
+            }
+            
+            // BFS query is done — launch body search immediately
+            if (fEmailList->CountItems() == 0) {
+                ShowEmptyListMessage(B_TRANSLATE("No emails match your search."));
+                break;
+            }
+            
+            fIsSearchActive = true;
+            fSearchField->SetBodySearchRunning(true);
+            fEmailList->StartBodySearch(bodyText.String(),
+                false,   // case-insensitive
+                true);   // full-text (headers + body)
+            break;
+        }
+        
+        case MSG_BODY_SEARCH_CLEAR: {
+            // Body search clear button pressed.
             // If a body search is running, abort it first (keep results).
-            // The user presses × again to clear the search entirely.
+            // Pressing clear again clears the text and reloads.
             if (fEmailList->IsBodySearchRunning()) {
                 fEmailList->StopBodySearch();
                 fEmailList->StopLoadingDots();
@@ -5640,19 +5681,16 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
                 break;
             }
             
-            // Also cancel any pending body search that hasn't started yet
+            // Cancel any pending body search
             fPendingBodySearch = false;
             fPendingBodySearchText.SetTo("");
             
-            bool wasSearchExecuted = fSearchField->IsSearchExecuted();
-            fSearchField->SetText("");
-            fSearchField->SetSearchExecuted(false);
-            fSearchField->SetMatchesMode(false);  // Reset to "contains" mode
-            // Only reload if a search was actually executed
-            if (wasSearchExecuted)
-                ApplySearchFilter();
-            // Restore focus to search field for new search
-            fSearchField->TextView()->MakeFocus(true);
+            // Clear the body search text
+            fSearchField->SetBodySearchText("");
+            
+            // Reload the current view (filter only, no body search)
+            ApplySearchFilter();
+            fSearchField->BodySearchTextView()->MakeFocus(true);
             break;
         }
         
@@ -6104,8 +6142,6 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
             
             if (workerThread >= 0) {
                 resume_thread(workerThread);
-                // Show backup-in-progress animation on search bar
-                fSearchField->SetBackupActive(true);
             } else {
                 delete[] paths;
                 delete workerData;
@@ -6118,8 +6154,7 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
         }
         
         case MSG_BACKUP_FINISHED: {
-            // Zip worker thread finished — stop backup animation
-            fSearchField->SetBackupActive(false);
+            // Zip worker thread finished
             break;
         }
         
@@ -6786,8 +6821,9 @@ bool EmailViewsWindow::SelectBuiltInQueryByName(const char* name)
                 fEmailList->SetShowingTrash(false);
                 fEmailList->SetShowingSpam(false);
                 
-                // Clear search field when switching folders
+                // Clear search fields when switching folders
                 fSearchField->SetText("");
+                fSearchField->SetBodySearchText("");
                 fSearchField->SetHasResults(false);
                 fIsSearchActive = false;
                 

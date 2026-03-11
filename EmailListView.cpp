@@ -57,8 +57,7 @@
 
 #include <MessageRunner.h>
 
-#include <mail/E-mail.h>
-#include <mail/MailMessage.h>
+#include <mail_encoding.h>
 
 #include <algorithm>
 #include <cmath>
@@ -298,9 +297,308 @@ StripHtmlTags(BString* text)
 }
 
 
+// Search a header block for a specific header field (case-insensitive).
+// Returns the value (trimmed) or empty string if not found.
+// headerStart/headerEnd define the region to search (exclusive of the
+// blank-line separator).
+static BString
+_FindHeader(const char* headerStart, const char* headerEnd,
+	const char* fieldName)
+{
+	int32 fieldLen = strlen(fieldName);
+	for (const char* p = headerStart; p + fieldLen < headerEnd; p++) {
+		// Only match at the start of a line (or start of the header block).
+		// Without this check we can falsely match header names embedded
+		// inside values — e.g. ARC-Message-Signature's "h=" field lists
+		// header names like "content-type" as plain text.
+		if (p != headerStart && p[-1] != '\n')
+			continue;
+		if ((*p == fieldName[0] || *p == (fieldName[0] ^ 0x20))
+			&& strncasecmp(p, fieldName, fieldLen) == 0) {
+			// Found — extract value (skip whitespace after the field name)
+			const char* value = p + fieldLen;
+			while (value < headerEnd && (*value == ' ' || *value == '\t'))
+				value++;
+			// Collect until end of line (handling header folding: if the
+			// next line starts with whitespace, it's a continuation)
+			char result[512];
+			int32 j = 0;
+			while (value < headerEnd && j < (int32)sizeof(result) - 1) {
+				if (*value == '\r' || *value == '\n') {
+					// Skip the line ending
+					const char* next = value;
+					if (*next == '\r') next++;
+					if (next < headerEnd && *next == '\n') next++;
+					// Check for folded header (next line starts with space/tab)
+					if (next < headerEnd
+						&& (*next == ' ' || *next == '\t')) {
+						result[j++] = ' ';
+						value = next;
+						// Skip leading whitespace of continuation
+						while (value < headerEnd
+							&& (*value == ' ' || *value == '\t'))
+							value++;
+						continue;
+					}
+					break;  // Not folded — end of this header
+				}
+				result[j++] = *value++;
+			}
+			// Trim trailing whitespace
+			while (j > 0 && (result[j - 1] == ' ' || result[j - 1] == '\t'))
+				j--;
+			result[j] = '\0';
+			return BString(result);
+		}
+	}
+	return BString();
+}
+
+
+// Extract the boundary string from a Content-Type header value.
+// e.g. from "multipart/alternative; boundary=\"----=_Part_123\""
+// returns "----=_Part_123".
+static BString
+_ExtractBoundary(const BString& contentType)
+{
+	// Find "boundary=" (case-insensitive)
+	int32 pos = contentType.IFindFirst("boundary=");
+	if (pos < 0)
+		return BString();
+
+	const char* start = contentType.String() + pos + 9;  // skip "boundary="
+
+	BString boundary;
+	if (*start == '"') {
+		// Quoted boundary — collect until closing quote
+		start++;
+		while (*start != '\0' && *start != '"')
+			boundary << *start++;
+	} else {
+		// Unquoted — collect until whitespace, semicolon, or end
+		while (*start != '\0' && *start != ' ' && *start != '\t'
+			&& *start != ';' && *start != '\r' && *start != '\n')
+			boundary << *start++;
+	}
+
+	return boundary;
+}
+
+
+// Decode a MIME part body given its encoding and length.
+// Sets outText and returns true on success.
+static bool
+_DecodePart(const char* bodyStart, int32 bodyLen,
+	mail_encoding encoding, bool isHtml, BString* outText)
+{
+	if (bodyLen <= 0)
+		return false;
+
+	if (encoding == base64 || encoding == quoted_printable
+		|| encoding == uuencode) {
+		char* decoded = new(std::nothrow) char[bodyLen + 1];
+		if (decoded == NULL)
+			return false;
+
+		ssize_t decodedLen = decode(encoding, decoded, bodyStart,
+			bodyLen, 0);
+		if (decodedLen > 0) {
+			decoded[decodedLen] = '\0';
+			*outText = decoded;
+		}
+		delete[] decoded;
+	} else {
+		// 7bit, 8bit, or no encoding — use raw bytes
+		outText->SetTo(bodyStart, bodyLen);
+	}
+
+	if (outText->Length() == 0)
+		return false;
+
+	if (isHtml)
+		StripHtmlTags(outText);
+
+	return true;
+}
+
+
+// Find the first text part (text/plain preferred, text/html as fallback)
+// inside a multipart body. boundary is the MIME boundary string.
+// regionStart/regionEnd delimit the body area to search.
+// Sets outText and returns true if a text part was found and decoded.
+// If recurse is true, handles one level of nested multipart.
+static bool
+_FindTextPart(const char* regionStart, const char* regionEnd,
+	const BString& boundary, bool recurse, BString* outText)
+{
+	// Build the boundary delimiter: "--" + boundary
+	BString delim("--");
+	delim << boundary;
+	int32 delimLen = delim.Length();
+
+	// Collect all part start positions by scanning for the delimiter.
+	// Each part starts after the delimiter line; the closing delimiter
+	// has "--" appended (e.g. "--boundary--").
+	struct PartInfo {
+		const char* headerStart;
+		const char* headerEnd;   // blank line
+		const char* bodyStart;
+		const char* bodyEnd;
+	};
+
+	// We only need to track a modest number of parts (most emails have
+	// 2-5 parts).  Use a fixed array to avoid heap allocation.
+	static const int32 kMaxParts = 16;
+	PartInfo parts[kMaxParts];
+	int32 partCount = 0;
+
+	const char* pos = regionStart;
+	while (pos < regionEnd && partCount < kMaxParts) {
+		// Find next boundary
+		const char* found = NULL;
+		for (const char* p = pos; p + delimLen <= regionEnd; p++) {
+			if (*p == '-' && *(p + 1) == '-'
+				&& strncmp(p, delim.String(), delimLen) == 0) {
+				found = p;
+				break;
+			}
+		}
+		if (found == NULL)
+			break;
+
+		// Check if this is the closing delimiter (--boundary--)
+		const char* afterDelim = found + delimLen;
+		if (afterDelim + 1 < regionEnd
+			&& afterDelim[0] == '-' && afterDelim[1] == '-')
+			break;  // End of multipart
+
+		// Skip past the delimiter line (to the start of part headers)
+		const char* lineEnd = afterDelim;
+		while (lineEnd < regionEnd && *lineEnd != '\n')
+			lineEnd++;
+		if (lineEnd < regionEnd)
+			lineEnd++;  // skip the '\n'
+
+		const char* partStart = lineEnd;
+
+		// Find the next boundary to know where this part ends
+		const char* nextBoundary = NULL;
+		for (const char* p = partStart; p + delimLen <= regionEnd; p++) {
+			if (*p == '-' && *(p + 1) == '-'
+				&& strncmp(p, delim.String(), delimLen) == 0) {
+				nextBoundary = p;
+				break;
+			}
+		}
+		if (nextBoundary == NULL)
+			nextBoundary = regionEnd;
+
+		// Within this part, find the blank line separating part headers
+		// from part body
+		const char* partHeaderEnd = NULL;
+		int32 partSepLen = 0;
+		// Try \r\n\r\n first
+		for (const char* p = partStart; p + 3 < nextBoundary; p++) {
+			if (p[0] == '\r' && p[1] == '\n'
+				&& p[2] == '\r' && p[3] == '\n') {
+				partHeaderEnd = p;
+				partSepLen = 4;
+				break;
+			}
+		}
+		if (partHeaderEnd == NULL) {
+			// Try \n\n
+			for (const char* p = partStart; p + 1 < nextBoundary; p++) {
+				if (p[0] == '\n' && p[1] == '\n') {
+					partHeaderEnd = p;
+					partSepLen = 2;
+					break;
+				}
+			}
+		}
+
+		if (partHeaderEnd != NULL) {
+			PartInfo& part = parts[partCount++];
+			part.headerStart = partStart;
+			part.headerEnd = partHeaderEnd;
+			part.bodyStart = partHeaderEnd + partSepLen;
+			// Trim trailing \r\n before the next boundary
+			part.bodyEnd = nextBoundary;
+			while (part.bodyEnd > part.bodyStart
+				&& (part.bodyEnd[-1] == '\r' || part.bodyEnd[-1] == '\n'))
+				part.bodyEnd--;
+		}
+
+		pos = nextBoundary;
+	}
+
+	// Now scan parts: prefer text/plain, fall back to text/html.
+	// If a part is itself multipart and recurse is true, descend into it.
+	int32 htmlPartIndex = -1;
+
+	for (int32 i = 0; i < partCount; i++) {
+		BString ct = _FindHeader(parts[i].headerStart,
+			parts[i].headerEnd, "Content-Type:");
+		ct.ToLower();
+
+		if (ct.FindFirst("text/plain") >= 0) {
+			// Found text/plain — decode and return immediately
+			BString cte = _FindHeader(parts[i].headerStart,
+				parts[i].headerEnd, "Content-Transfer-Encoding:");
+			mail_encoding enc = cte.Length() > 0
+				? encoding_for_cte(cte.String()) : no_encoding;
+			int32 partBodyLen = parts[i].bodyEnd - parts[i].bodyStart;
+			if (_DecodePart(parts[i].bodyStart, partBodyLen, enc, false,
+				outText))
+				return true;
+		}
+
+		if (ct.FindFirst("text/html") >= 0 && htmlPartIndex < 0)
+			htmlPartIndex = i;
+
+		// Handle one level of nested multipart
+		if (recurse && ct.FindFirst("multipart/") >= 0) {
+			BString innerBoundary = _ExtractBoundary(ct);
+			if (innerBoundary.Length() > 0) {
+				// The inner multipart's body starts at parts[i].bodyStart
+				// and ends at parts[i].bodyEnd (approximately — the body
+				// extends to the outer boundary, so use nextBoundary region).
+				// Actually, the inner body includes everything from the
+				// part body start up to where the outer part ends.
+				if (_FindTextPart(parts[i].bodyStart, parts[i].bodyEnd,
+					innerBoundary, false, outText))
+					return true;
+			}
+		}
+	}
+
+	// No text/plain found — try text/html fallback
+	if (htmlPartIndex >= 0) {
+		BString cte = _FindHeader(parts[htmlPartIndex].headerStart,
+			parts[htmlPartIndex].headerEnd,
+			"Content-Transfer-Encoding:");
+		mail_encoding enc = cte.Length() > 0
+			? encoding_for_cte(cte.String()) : no_encoding;
+		int32 partBodyLen = parts[htmlPartIndex].bodyEnd
+			- parts[htmlPartIndex].bodyStart;
+		if (_DecodePart(parts[htmlPartIndex].bodyStart, partBodyLen, enc,
+			true, outText))
+			return true;
+	}
+
+	return false;
+}
+
+
 // Extract the plain text body from an email file. Returns true if text
-// was successfully extracted. For HTML-only emails, strips tags and
-// decodes entities so the text is searchable.
+// was successfully extracted. Uses lightweight mail_encoding decode()
+// functions instead of BEmailMessage to avoid expensive MIME object
+// construction. Handles:
+//   - Single-part emails (7bit, 8bit, quoted-printable, base64)
+//   - Multipart emails (finds the text/plain or text/html part)
+//   - One level of nested multipart (e.g. multipart/mixed containing
+//     multipart/alternative — the most common structure for emails
+//     with attachments)
 static bool
 ExtractBodyText(const entry_ref& ref, BString* outText)
 {
@@ -309,33 +607,7 @@ ExtractBodyText(const entry_ref& ref, BString* outText)
 
 	outText->SetTo("");
 
-	// Try the Mail Kit parser first — handles multipart correctly,
-	// returning the text/plain alternative when available.
-	BEmailMessage email(&ref);
-	BMailComponent* body = email.Body();
-	if (body != NULL) {
-		BTextMailComponent* textComp
-			= dynamic_cast<BTextMailComponent*>(body);
-		if (textComp != NULL) {
-			const char* text = textComp->Text();
-			if (text != NULL && text[0] != '\0') {
-				*outText = text;
-
-				// Check if the "text" is actually HTML
-				BString lower(*outText);
-				lower.ToLower();
-				if (lower.FindFirst("<!doctype html") >= 0
-					|| lower.FindFirst("<html") >= 0
-					|| (lower.FindFirst("<head") >= 0
-						&& lower.FindFirst("<body") >= 0)) {
-					StripHtmlTags(outText);
-				}
-				return true;
-			}
-		}
-	}
-
-	// Fallback: read raw file and skip past headers
+	// Read the raw file
 	BFile file(&ref, B_READ_ONLY);
 	if (file.InitCheck() != B_OK)
 		return false;
@@ -356,33 +628,72 @@ ExtractBodyText(const entry_ref& ref, BString* outText)
 	}
 	buffer[bytesRead] = '\0';
 
-	// Find the blank line separating headers from body
-	const char* bodyStart = strstr(buffer, "\r\n\r\n");
-	if (bodyStart == NULL)
-		bodyStart = strstr(buffer, "\n\n");
+	const char* bufferEnd = buffer + bytesRead;
 
-	if (bodyStart != NULL) {
-		while (*bodyStart == '\r' || *bodyStart == '\n')
-			bodyStart++;
-		*outText = bodyStart;
+	// Find the blank line separating headers from body
+	const char* headerEnd = strstr(buffer, "\r\n\r\n");
+	int32 separatorLen = 4;
+	if (headerEnd == NULL) {
+		headerEnd = strstr(buffer, "\n\n");
+		separatorLen = 2;
+	}
+
+	if (headerEnd == NULL) {
+		delete[] buffer;
+		return false;
+	}
+
+	const char* bodyStart = headerEnd + separatorLen;
+	if (bodyStart >= bufferEnd) {
+		delete[] buffer;
+		return false;
+	}
+
+	// Check if this is a multipart message
+	BString contentType = _FindHeader(buffer, headerEnd, "Content-Type:");
+	BString ctLower(contentType);
+	ctLower.ToLower();
+
+	bool ok = false;
+	bool isMultipart = (ctLower.FindFirst("multipart/") >= 0);
+
+	if (isMultipart) {
+		// Multipart — extract boundary and find the text part
+		BString boundary = _ExtractBoundary(contentType);
+		if (boundary.Length() > 0)
+			ok = _FindTextPart(bodyStart, bufferEnd, boundary, true, outText);
+	}
+
+	if (!ok && !isMultipart) {
+		// Single-part email only — decode the whole body using the
+		// top-level Content-Transfer-Encoding.  Do NOT fall through here
+		// for multipart messages: the raw body contains undecoded base64
+		// blobs, boundary markers, and part headers that would cause
+		// false-positive search matches.
+		BString cte = _FindHeader(buffer, headerEnd,
+			"Content-Transfer-Encoding:");
+		mail_encoding encoding = cte.Length() > 0
+			? encoding_for_cte(cte.String()) : no_encoding;
+		int32 bodyLen = bufferEnd - bodyStart;
+
+		bool isHtml = (ctLower.FindFirst("text/html") >= 0);
+		ok = _DecodePart(bodyStart, bodyLen, encoding, isHtml, outText);
+
+		// If Content-Type wasn't explicit, check content for HTML
+		if (ok && !isHtml && outText->Length() > 0) {
+			BString lower(*outText);
+			lower.ToLower();
+			if (lower.FindFirst("<!doctype html") >= 0
+				|| lower.FindFirst("<html") >= 0
+				|| (lower.FindFirst("<head") >= 0
+					&& lower.FindFirst("<body") >= 0)) {
+				StripHtmlTags(outText);
+			}
+		}
 	}
 
 	delete[] buffer;
-
-	if (outText->Length() == 0)
-		return false;
-
-	// Check if the fallback content is HTML
-	BString lower(*outText);
-	lower.ToLower();
-	if (lower.FindFirst("<!doctype html") >= 0
-		|| lower.FindFirst("<html") >= 0
-		|| (lower.FindFirst("<head") >= 0
-			&& lower.FindFirst("<body") >= 0)) {
-		StripHtmlTags(outText);
-	}
-
-	return true;
+	return ok;
 }
 
 

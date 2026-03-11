@@ -1,5 +1,5 @@
 /*
- * SearchBarView.cpp - Search bar with attribute dropdown and action buttons
+ * SearchBarView.cpp - Filter bar and body search field
  * Distributed under the terms of the MIT License.
  */
 
@@ -17,14 +17,11 @@
 #include <MessageRunner.h>
 #include <PopUpMenu.h>
 #include <Resources.h>
+#include <SeparatorView.h>
 #include <Window.h>
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "SearchBarView"
-
-// Message for backup dots animation
-static const uint32 kMsgBackupDotsPulse = 'bkdp';
-static const int32 kBackupDotCount = 3;
 
 
 // ============================================================================
@@ -195,7 +192,8 @@ SearchTextControl::_LayoutTextView()
 // ============================================================================
 
 SearchBarView::SearchBarView(BMessage* searchMessage, BMessage* clearMessage,
-	BMessage* addQueryMessage, BMessage* backupMessage)
+	BMessage* addQueryMessage,
+	BMessage* bodySearchMessage, BMessage* bodyClearMessage)
 	:
 	BView("search_bar", B_WILL_DRAW | B_FRAME_EVENTS),
 	fAttributeMenu(NULL),
@@ -204,13 +202,10 @@ SearchBarView::SearchBarView(BMessage* searchMessage, BMessage* clearMessage,
 	fClearButton(NULL),
 	fClearMessage(clearMessage),
 	fAddQueryMessage(addQueryMessage),
-	fBackupMessage(backupMessage),
 	fClearIcon(NULL),
 	fStopIcon(NULL),
 	fAddQueryIcon(NULL),
-	fBackupIcon(NULL),
 	fSearchDebounceRunner(NULL),
-	fBackupDotsRunner(NULL),
 	fButtonSize(20.0f),
 	fSearchExecuted(false),
 	fHasResults(false),
@@ -219,40 +214,35 @@ SearchBarView::SearchBarView(BMessage* searchMessage, BMessage* clearMessage,
 	fSettingTextProgrammatically(false),
 	fSearchAttribute(SEARCH_SUBJECT),
 	fMatchesMode(false),
-	fBackupActive(false),
-	fBackupDot(0)
+	fBodySearchControl(NULL),
+	fBodyClearButton(NULL),
+	fBodySearchMessage(bodySearchMessage),
+	fBodyClearMessage(bodyClearMessage),
+	fBodyClearIcon(NULL),
+	fBodyStopIcon(NULL)
 {
 	SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
 
-	// Derive button size from font metrics so the + and ZIP icons scale
+	// Derive button size from font metrics so the + icon scales
 	// with the system font size, matching the search bar's natural height.
-	// The 1.4 multiplier gives ~20px at the default 12pt font, matching the
-	// original hardcoded size while scaling proportionally at larger sizes.
 	font_height fh0;
 	be_plain_font->GetHeight(&fh0);
 	fButtonSize = ceilf((fh0.ascent + fh0.descent) * 1.4f);
 
-	// Create attribute popup menu
+	// Create attribute popup menu (filter attributes only — no body/fulltext)
 	BPopUpMenu* menu = new BPopUpMenu("attributes");
 	menu->AddItem(new BMenuItem(B_TRANSLATE("Subject"), new BMessage(MSG_SEARCH_ATTRIBUTE)));
 	menu->AddItem(new BMenuItem(B_TRANSLATE("From"), new BMessage(MSG_SEARCH_ATTRIBUTE)));
 	menu->AddItem(new BMenuItem(B_TRANSLATE("To"), new BMessage(MSG_SEARCH_ATTRIBUTE)));
 	menu->AddItem(new BMenuItem(B_TRANSLATE("Account"), new BMessage(MSG_SEARCH_ATTRIBUTE)));
-	menu->AddSeparatorItem();
-	menu->AddItem(new BMenuItem(B_TRANSLATE("Body"), new BMessage(MSG_SEARCH_ATTRIBUTE)));
-	menu->AddItem(new BMenuItem(B_TRANSLATE("Full text"), new BMessage(MSG_SEARCH_ATTRIBUTE)));
 	menu->ItemAt(0)->SetMarked(true);  // Default to "Subject"
 
-	// Create menu field with "Filter by" label
+	// Create menu field with "Filter:" label
 	fAttributeMenu = new BMenuField("attribute", B_TRANSLATE("Filter:"), menu);
-	fAttributeMenu->SetToolTip(B_TRANSLATE("Select attribute(s) to query"));
+	fAttributeMenu->SetToolTip(B_TRANSLATE("Select attribute to filter by"));
 
 	// Compute the minimum width that can display every menu item without
-	// clipping.  PreferredSize() only accounts for the *currently marked*
-	// item, so we derive the fixed overhead (label + divider + popup arrow +
-	// frame margins) by subtracting the marked item's string width, then add
-	// back the widest item's string width.  This is locale-safe and
-	// font-size sensitive.
+	// clipping.
 	{
 		float markedWidth = menu->FindMarked()
 			? be_plain_font->StringWidth(menu->FindMarked()->Label()) : 0;
@@ -280,7 +270,7 @@ SearchBarView::SearchBarView(BMessage* searchMessage, BMessage* clearMessage,
 	fOperatorMenu = new BMenuField("operator", NULL, operatorMenu);
 	fOperatorMenu->SetToolTip(B_TRANSLATE("Select search operator"));
 
-	// Same technique: size to the widest operator label
+	// Size to the widest operator label
 	{
 		float markedWidth = operatorMenu->FindMarked()
 			? be_plain_font->StringWidth(operatorMenu->FindMarked()->Label()) : 0;
@@ -298,14 +288,14 @@ SearchBarView::SearchBarView(BMessage* searchMessage, BMessage* clearMessage,
 		fOperatorMenu->SetExplicitMaxSize(BSize(operatorMenuWidth, B_SIZE_UNSET));
 	}
 
-	// Create text control with placeholder support
-	fTextControl = new SearchTextControl("search", searchMessage);
+	// Create filter text control with placeholder support
+	fTextControl = new SearchTextControl("filter", searchMessage);
 	fTextControl->SetModificationMessage(new BMessage('_mod'));
 	fTextControl->SetPlaceholder(B_TRANSLATE("Type text and press Enter" B_UTF8_ELLIPSIS));
 
-	// Create clear button with icon, flush against text control
+	// Create filter clear button with icon, flush against text control
 	fClearButton = new BButton("clear", "", new BMessage(MSG_CLEAR_BUTTON_CLICKED));
-	fClearButton->SetToolTip(B_TRANSLATE("Clear search box"));
+	fClearButton->SetToolTip(B_TRANSLATE("Clear filter"));
 	fClearButton->SetEnabled(false);  // Disabled until there's text
 	
 	// Size the button to match text control height
@@ -314,9 +304,29 @@ SearchBarView::SearchBarView(BMessage* searchMessage, BMessage* clearMessage,
 	float textCtrlHeight = ceilf(fh.ascent + fh.descent + fh.leading) + 8;
 	fClearButton->SetExplicitSize(BSize(textCtrlHeight, textCtrlHeight));
 
-	// Use horizontal layout with right inset for icon buttons (2 buttons now: + and ZIP)
-	float buttonsWidth = (fButtonSize + 4) * 2 + 4;
+	// Create body search text control
+	fBodySearchControl = new SearchTextControl("bodysearch",
+		bodySearchMessage);
+	fBodySearchControl->SetModificationMessage(new BMessage('_bmd'));
+	fBodySearchControl->SetPlaceholder(
+		B_TRANSLATE("Type text and press Enter" B_UTF8_ELLIPSIS));
+
+	// Create body search clear button
+	fBodyClearButton = new BButton("bodyclear", "",
+		new BMessage(MSG_BODY_CLEAR_CLICKED));
+	fBodyClearButton->SetToolTip(B_TRANSLATE("Clear search"));
+	fBodyClearButton->SetEnabled(false);
+	fBodyClearButton->SetExplicitSize(BSize(textCtrlHeight, textCtrlHeight));
+
+	// Create "Search:" label for the body search section
+	BStringView* searchLabel = new BStringView("searchLabel",
+		B_TRANSLATE("Search:"));
+
+	// Build layout: filter section | separator | search section
+	// Right inset reserves space for the + button drawn in Draw()
+	float addButtonWidth = fButtonSize + 8;
 	BLayoutBuilder::Group<>(this, B_HORIZONTAL, 2)
+		// Filter section
 		.Add(fAttributeMenu)
 		.AddStrut(4)
 		.Add(fOperatorMenu)
@@ -325,32 +335,39 @@ SearchBarView::SearchBarView(BMessage* searchMessage, BMessage* clearMessage,
 			.Add(fTextControl)
 			.Add(fClearButton)
 		.End()
-		.AddStrut(6)
-		.SetInsets(0, 0, buttonsWidth, 0);
+		.AddStrut(addButtonWidth)
+		// Separator
+		.Add(new BSeparatorView(B_VERTICAL, B_PLAIN_BORDER))
+		// Body search section
+		.AddStrut(4)
+		.Add(searchLabel)
+		.AddStrut(4)
+		.AddGroup(B_HORIZONTAL, -2)
+			.Add(fBodySearchControl, 1.0f)
+			.Add(fBodyClearButton)
+		.End();
 }
 
 
 SearchBarView::~SearchBarView()
 {
 	delete fSearchDebounceRunner;
-	delete fBackupDotsRunner;
 	delete fClearIcon;
 	delete fStopIcon;
 	delete fAddQueryIcon;
-	delete fBackupIcon;
+	delete fBodyClearIcon;
+	delete fBodyStopIcon;
 	// Note: searchMessage was passed to fTextControl which takes ownership
-	// fClearMessage, fAddQueryMessage, and fBackupMessage are stored by us, so we delete them
 	delete fClearMessage;
 	delete fAddQueryMessage;
-	delete fBackupMessage;
+	delete fBodySearchMessage;
+	delete fBodyClearMessage;
 }
 
 
 BSize
 SearchBarView::MinSize()
 {
-	// Return a small minimum to allow the window to resize narrower.
-	// The search bar will truncate/clip when narrower than preferred size.
 	return BSize(100, 26);
 }
 
@@ -363,15 +380,16 @@ SearchBarView::_LoadIcons()
 		return;
 
 	size_t size;
-	int iconSize = (int)fButtonSize - 2;
 
-	// Load clear button icon and set it on the button
-	const void* data = resources->LoadResource(B_VECTOR_ICON_TYPE, "ClearButton", &size);
+	// Load clear button icon and set it on the filter clear button
+	const void* data = resources->LoadResource(B_VECTOR_ICON_TYPE,
+		"ClearButton", &size);
 	if (data != NULL) {
-		// Use a slightly smaller icon for the button (to fit nicely)
 		int clearIconSize = 16;
-		fClearIcon = new BBitmap(BRect(0, 0, clearIconSize - 1, clearIconSize - 1), B_RGBA32);
-		if (BIconUtils::GetVectorIcon((const uint8*)data, size, fClearIcon) == B_OK) {
+		fClearIcon = new BBitmap(BRect(0, 0, clearIconSize - 1,
+			clearIconSize - 1), B_RGBA32);
+		if (BIconUtils::GetVectorIcon((const uint8*)data, size,
+			fClearIcon) == B_OK) {
 			if (fClearButton != NULL)
 				fClearButton->SetIcon(fClearIcon);
 		} else {
@@ -380,34 +398,43 @@ SearchBarView::_LoadIcons()
 		}
 	}
 
-	// Load stop/abort icon (same size as clear icon)
+	// Load stop/abort icon (for body search abort)
 	data = resources->LoadResource(B_VECTOR_ICON_TYPE, "StopSearch", &size);
 	if (data != NULL) {
 		int clearIconSize = 16;
-		fStopIcon = new BBitmap(BRect(0, 0, clearIconSize - 1, clearIconSize - 1), B_RGBA32);
-		if (BIconUtils::GetVectorIcon((const uint8*)data, size, fStopIcon) != B_OK) {
+		fStopIcon = new BBitmap(BRect(0, 0, clearIconSize - 1,
+			clearIconSize - 1), B_RGBA32);
+		if (BIconUtils::GetVectorIcon((const uint8*)data, size,
+			fStopIcon) != B_OK) {
 			delete fStopIcon;
 			fStopIcon = NULL;
 		}
 	}
 
-	data = resources->LoadResource(B_VECTOR_ICON_TYPE, "SearchAddQuery", &size);
+	// Load add query icon (+)
+	int iconSize = (int)fButtonSize - 2;
+	data = resources->LoadResource(B_VECTOR_ICON_TYPE, "SearchAddQuery",
+		&size);
 	if (data != NULL) {
-		fAddQueryIcon = new BBitmap(BRect(0, 0, iconSize - 1, iconSize - 1), B_RGBA32);
-		if (BIconUtils::GetVectorIcon((const uint8*)data, size, fAddQueryIcon) != B_OK) {
+		fAddQueryIcon = new BBitmap(BRect(0, 0, iconSize - 1,
+			iconSize - 1), B_RGBA32);
+		if (BIconUtils::GetVectorIcon((const uint8*)data, size,
+			fAddQueryIcon) != B_OK) {
 			delete fAddQueryIcon;
 			fAddQueryIcon = NULL;
 		}
 	}
 
-	data = resources->LoadResource(B_VECTOR_ICON_TYPE, "BackupEmails", &size);
-	if (data != NULL) {
-		fBackupIcon = new BBitmap(BRect(0, 0, iconSize - 1, iconSize - 1), B_RGBA32);
-		if (BIconUtils::GetVectorIcon((const uint8*)data, size, fBackupIcon) != B_OK) {
-			delete fBackupIcon;
-			fBackupIcon = NULL;
-		}
+	// Clone clear icon for body search clear button
+	if (fClearIcon != NULL) {
+		fBodyClearIcon = new BBitmap(fClearIcon);
+		if (fBodyClearButton != NULL)
+			fBodyClearButton->SetIcon(fBodyClearIcon);
 	}
+
+	// Clone stop icon for body search stop
+	if (fStopIcon != NULL)
+		fBodyStopIcon = new BBitmap(fStopIcon);
 }
 
 
@@ -416,11 +443,12 @@ SearchBarView::AttachedToWindow()
 {
 	BView::AttachedToWindow();
 
-	// Set targets
 	fTextControl->SetTarget(this);
 	fAttributeMenu->Menu()->SetTargetForItems(this);
 	fOperatorMenu->Menu()->SetTargetForItems(this);
 	fClearButton->SetTarget(this);
+	fBodySearchControl->SetTarget(this);
+	fBodyClearButton->SetTarget(this);
 
 	_LoadIcons();
 }
@@ -443,27 +471,37 @@ SearchBarView::MakeFocus(bool focus)
 
 
 void
+SearchBarView::MakeFocusBodySearch()
+{
+	if (fBodySearchControl)
+		fBodySearchControl->MakeFocus(true);
+}
+
+
+void
 SearchBarView::MessageReceived(BMessage* message)
 {
 	switch (message->what) {
 		case B_COLORS_UPDATED: {
-			// System colors changed - update text color
+			rgb_color textColor = ui_color(B_DOCUMENT_TEXT_COLOR);
 			if (fTextControl != NULL && fTextControl->TextView() != NULL) {
-				rgb_color textColor = ui_color(B_DOCUMENT_TEXT_COLOR);
-				fTextControl->TextView()->SetFontAndColor(NULL, B_FONT_ALL, &textColor);
+				fTextControl->TextView()->SetFontAndColor(NULL,
+					B_FONT_ALL, &textColor);
 				fTextControl->TextView()->Invalidate();
+			}
+			if (fBodySearchControl != NULL
+				&& fBodySearchControl->TextView() != NULL) {
+				fBodySearchControl->TextView()->SetFontAndColor(NULL,
+					B_FONT_ALL, &textColor);
+				fBodySearchControl->TextView()->Invalidate();
 			}
 			break;
 		}
 		
 		case '_mod': {
-			// Text modification callback from PlaceholderTextView.
-			// fSettingTextProgrammatically distinguishes user typing from
-			// programmatic SetText() calls (e.g., restoring a custom query's
-			// search text). User typing clears "search executed" state so the
-			// [+] button disables until Enter is pressed again.
+			// Filter text modification callback
 			if (fSettingTextProgrammatically) {
-				fSettingTextProgrammatically = false;  // Clear the flag here
+				fSettingTextProgrammatically = false;
 				_UpdateClearButtonState();
 				break;
 			}
@@ -473,14 +511,18 @@ SearchBarView::MessageReceived(BMessage* message)
 			Invalidate(_AddQueryButtonRect());
 			_UpdateClearButtonState();
 
-			// Auto-reset view when text becomes empty after a search was executed
 			if (!HasText() && wasSearchExecuted && Window())
 				Window()->PostMessage(new BMessage(MSG_SEARCH_MODIFIED));
 			break;
 		}
 
+		case '_bmd':
+			// Body search text modification callback
+			_UpdateBodyClearButtonState();
+			break;
+
 		case MSG_SEARCH_MODIFIED:
-			// Enter pressed - search executed
+			// Filter Enter pressed
 			fSearchExecuted = HasText();
 			Invalidate(_AddQueryButtonRect());
 			_UpdateClearButtonState();
@@ -488,59 +530,53 @@ SearchBarView::MessageReceived(BMessage* message)
 				Window()->PostMessage(message);
 			break;
 
+		case MSG_BODY_SEARCH_INVOKED:
+			// Body search Enter pressed — forward to window
+			if (Window())
+				Window()->PostMessage(message);
+			break;
+
 		case MSG_SEARCH_ATTRIBUTE: {
-			// Attribute selection changed
 			BMenuItem* item = fAttributeMenu->Menu()->FindMarked();
 			if (item) {
 				int32 index = fAttributeMenu->Menu()->IndexOf(item);
-				// Menu layout: Subject(0), From(1), To(2), Account(3),
-				//              separator(4), Body(5), Full text(6)
 				switch (index) {
 					case 0: fSearchAttribute = SEARCH_SUBJECT;  break;
 					case 1: fSearchAttribute = SEARCH_FROM;     break;
 					case 2: fSearchAttribute = SEARCH_TO;       break;
 					case 3: fSearchAttribute = SEARCH_ACCOUNT;  break;
-					case 5: fSearchAttribute = SEARCH_BODY;     break;
-					case 6: fSearchAttribute = SEARCH_FULLTEXT; break;
 					default: break;
 				}
-				// Redraw + button immediately (disabled for body/full-text)
 				Invalidate(_AddQueryButtonRect());
 			}
-			// Re-execute search if there's text - post MSG_SEARCH_MODIFIED
 			if (HasText() && Window())
 				Window()->PostMessage(new BMessage(MSG_SEARCH_MODIFIED));
 			break;
 		}
 
 		case MSG_SEARCH_OPERATOR: {
-			// Operator selection changed
 			BMenuItem* item = fOperatorMenu->Menu()->FindMarked();
 			if (item) {
 				int32 index = fOperatorMenu->Menu()->IndexOf(item);
-				// Index 0 = "that contains" (false), Index 1 = "matches" (true)
 				fMatchesMode = (index == 1);
 			}
-			// Re-execute search if there's text - post MSG_SEARCH_MODIFIED
 			if (HasText() && Window())
 				Window()->PostMessage(new BMessage(MSG_SEARCH_MODIFIED));
 			break;
 		}
 
 		case MSG_CLEAR_BUTTON_CLICKED:
-			// Clear button pressed - forward to window as clear message
 			if (fClearMessage && Window())
 				Window()->PostMessage(fClearMessage);
-			// Return focus to search box
 			if (fTextControl)
 				fTextControl->MakeFocus(true);
 			break;
 
-		case kMsgBackupDotsPulse:
-			if (fBackupActive) {
-				fBackupDot = (fBackupDot + 1) % kBackupDotCount;
-				Invalidate(_BackupButtonRect());
-			}
+		case MSG_BODY_CLEAR_CLICKED:
+			if (fBodyClearMessage && Window())
+				Window()->PostMessage(fBodyClearMessage);
+			if (fBodySearchControl)
+				fBodySearchControl->MakeFocus(true);
 			break;
 
 		default:
@@ -552,35 +588,19 @@ SearchBarView::MessageReceived(BMessage* message)
 BRect
 SearchBarView::_AddQueryButtonRect() const
 {
-	BRect bounds = Bounds();
-	float buttonSize = fButtonSize;
-	float buttonsWidth = (buttonSize + 4) * 2;  // 2 icon buttons now (+ and ZIP)
+	if (fClearButton == NULL)
+		return BRect();
 
-	// Position the + button in the button area
-	float left = bounds.right - buttonsWidth + 4;
+	BRect clearFrame = fClearButton->Frame();
+	float buttonSize = fButtonSize;
+	float left = clearFrame.right + 6;
+	BRect bounds = Bounds();
 	float centerY = bounds.top + bounds.Height() / 2;
 
 	return BRect(left,
 		centerY - buttonSize / 2,
 		left + buttonSize,
 		centerY + buttonSize / 2);
-}
-
-
-BRect
-SearchBarView::_BackupButtonRect() const
-{
-	BRect addRect = _AddQueryButtonRect();
-	if (!addRect.IsValid())
-		return BRect();
-
-	float buttonSize = addRect.Height();
-	float left = addRect.right + 4;
-
-	return BRect(left,
-		addRect.top,
-		left + buttonSize,
-		addRect.bottom);
 }
 
 
@@ -595,13 +615,10 @@ void
 SearchBarView::SetText(const char* text)
 {
 	if (fTextControl) {
-		// Set flag so _mod handler knows this is programmatic, not user typing
-		// Flag is cleared in _mod handler (async) not here
 		fSettingTextProgrammatically = true;
 		fTextControl->SetText(text);
 	}
 }
-
 
 
 BTextView*
@@ -618,13 +635,41 @@ SearchBarView::HasText() const
 }
 
 
+const char*
+SearchBarView::BodySearchText() const
+{
+	return fBodySearchControl ? fBodySearchControl->Text() : "";
+}
+
+
+void
+SearchBarView::SetBodySearchText(const char* text)
+{
+	if (fBodySearchControl)
+		fBodySearchControl->SetText(text);
+}
+
+
+BTextView*
+SearchBarView::BodySearchTextView() const
+{
+	return fBodySearchControl ? fBodySearchControl->TextView() : NULL;
+}
+
+
+bool
+SearchBarView::HasBodySearchText() const
+{
+	return fBodySearchControl && fBodySearchControl->TextLength() > 0;
+}
+
+
 void
 SearchBarView::SetSearchExecuted(bool executed)
 {
 	if (fSearchExecuted != executed) {
 		fSearchExecuted = executed;
 		Invalidate(_AddQueryButtonRect());
-		Invalidate(_BackupButtonRect());
 	}
 }
 
@@ -635,7 +680,6 @@ SearchBarView::SetHasResults(bool hasResults)
 	if (fHasResults != hasResults) {
 		fHasResults = hasResults;
 		Invalidate(_AddQueryButtonRect());
-		Invalidate(_BackupButtonRect());
 	}
 }
 
@@ -643,61 +687,35 @@ SearchBarView::SetHasResults(bool hasResults)
 void
 SearchBarView::SetViewHasContent(bool hasContent)
 {
-	if (fViewHasContent != hasContent) {
+	if (fViewHasContent != hasContent)
 		fViewHasContent = hasContent;
-		Invalidate(_BackupButtonRect());
-	}
 }
 
 
 void
 SearchBarView::SetLoading(bool loading)
 {
-	if (fLoading != loading) {
+	if (fLoading != loading)
 		fLoading = loading;
-		Invalidate(_BackupButtonRect());
-	}
-}
-
-
-void
-SearchBarView::SetBackupActive(bool active)
-{
-	if (fBackupActive == active)
-		return;
-
-	fBackupActive = active;
-	fBackupDot = 0;
-
-	if (active) {
-		delete fBackupDotsRunner;
-		BMessage msg(kMsgBackupDotsPulse);
-		fBackupDotsRunner = new BMessageRunner(BMessenger(this), &msg, 450000);
-	} else {
-		delete fBackupDotsRunner;
-		fBackupDotsRunner = NULL;
-	}
-
-	Invalidate(_BackupButtonRect());
 }
 
 
 void
 SearchBarView::SetBodySearchRunning(bool running)
 {
-	if (fClearButton == NULL)
+	if (fBodyClearButton == NULL)
 		return;
 
 	if (running) {
-		if (fStopIcon != NULL)
-			fClearButton->SetIcon(fStopIcon);
-		fClearButton->SetToolTip(B_TRANSLATE("Abort search"));
-		fClearButton->SetEnabled(true);
+		if (fBodyStopIcon != NULL)
+			fBodyClearButton->SetIcon(fBodyStopIcon);
+		fBodyClearButton->SetToolTip(B_TRANSLATE("Abort search"));
+		fBodyClearButton->SetEnabled(true);
 	} else {
-		if (fClearIcon != NULL)
-			fClearButton->SetIcon(fClearIcon);
-		fClearButton->SetToolTip(B_TRANSLATE("Clear search box"));
-		_UpdateClearButtonState();  // Re-evaluate enabled state based on text
+		if (fBodyClearIcon != NULL)
+			fBodyClearButton->SetIcon(fBodyClearIcon);
+		fBodyClearButton->SetToolTip(B_TRANSLATE("Clear search"));
+		_UpdateBodyClearButtonState();
 	}
 }
 
@@ -707,68 +725,20 @@ SearchBarView::Draw(BRect updateRect)
 {
 	BView::Draw(updateRect);
 
-	// Draw add query button (+) - enabled when there's text and results,
-	// but disabled for body/full-text search (can't be saved as a BFS query)
-	bool addQueryEnabled = HasText() && fHasResults && !IsBodySearch();
+	// Draw add query button (+) - enabled when there's filter text and results
+	bool addQueryEnabled = HasText() && fHasResults;
 	if (fAddQueryIcon != NULL) {
 		BRect addRect = _AddQueryButtonRect();
 		if (addRect.IsValid()) {
 			SetDrawingMode(B_OP_ALPHA);
 			if (!addQueryEnabled) {
-				// Draw with reduced opacity when disabled
 				SetBlendingMode(B_CONSTANT_ALPHA, B_ALPHA_OVERLAY);
-				SetHighColor(0, 0, 0, 64);  // 25% opacity for disabled state
+				SetHighColor(0, 0, 0, 64);
 			} else {
-				// Reset to normal blending for enabled state
 				SetBlendingMode(B_PIXEL_ALPHA, B_ALPHA_OVERLAY);
 			}
 			DrawBitmap(fAddQueryIcon, addRect.LeftTop());
 			SetDrawingMode(B_OP_COPY);
-		}
-	}
-
-	// Draw backup button (ZIP) - enabled if view has any content
-	bool backupEnabled = fViewHasContent && !fBackupActive && !fLoading;
-	if (fBackupIcon != NULL) {
-		BRect backupRect = _BackupButtonRect();
-		if (backupRect.IsValid()) {
-			SetDrawingMode(B_OP_ALPHA);
-			if (fBackupActive) {
-				// Backup in progress: draw dimmed icon
-				SetBlendingMode(B_CONSTANT_ALPHA, B_ALPHA_OVERLAY);
-				SetHighColor(0, 0, 0, 80);  // ~30% opacity
-			} else if (!backupEnabled) {
-				// Draw with reduced opacity when disabled
-				SetBlendingMode(B_CONSTANT_ALPHA, B_ALPHA_OVERLAY);
-				SetHighColor(0, 0, 0, 64);  // 25% opacity for disabled state
-			} else {
-				// Reset to normal blending for enabled state
-				SetBlendingMode(B_PIXEL_ALPHA, B_ALPHA_OVERLAY);
-			}
-			DrawBitmap(fBackupIcon, backupRect.LeftTop());
-			SetDrawingMode(B_OP_COPY);
-
-			// Draw animated dots over the dimmed icon during backup
-			if (fBackupActive) {
-				rgb_color bg = ui_color(B_PANEL_BACKGROUND_COLOR);
-				rgb_color dimColor = tint_color(bg, B_DARKEN_2_TINT);
-				rgb_color litColor = ui_color(B_STATUS_BAR_COLOR);
-
-				float dotSize = floorf(backupRect.Height() * 0.18f);
-				float spacing = dotSize * 2.0f;
-				float totalWidth = kBackupDotCount * dotSize
-					+ (kBackupDotCount - 1) * (spacing - dotSize);
-				float startX = backupRect.left
-					+ (backupRect.Width() - totalWidth) / 2.0f - 2.0f;
-				float centerY = backupRect.top + backupRect.Height() / 2.0f;
-
-				for (int32 i = 0; i < kBackupDotCount; i++) {
-					float cx = startX + i * spacing + dotSize / 2.0f;
-					SetHighColor(i == fBackupDot ? litColor : dimColor);
-					FillEllipse(BPoint(cx, centerY),
-						dotSize / 2.0f, dotSize / 2.0f);
-				}
-			}
 		}
 	}
 }
@@ -777,25 +747,11 @@ SearchBarView::Draw(BRect updateRect)
 void
 SearchBarView::MouseDown(BPoint where)
 {
-	// Check add query button first - enabled when there's text and results
-	// (disabled for body/full-text search — can't be saved as a BFS query)
-	if (HasText() && fHasResults && !IsBodySearch()) {
+	if (HasText() && fHasResults) {
 		BRect addRect = _AddQueryButtonRect();
 		if (addRect.Contains(where)) {
-			if (fAddQueryMessage && Window()) {
+			if (fAddQueryMessage && Window())
 				Window()->PostMessage(fAddQueryMessage);
-			}
-			return;
-		}
-	}
-
-	// Check backup button - enabled if view has any content and not already backing up
-	if (fViewHasContent && !fBackupActive && !fLoading) {
-		BRect backupRect = _BackupButtonRect();
-		if (backupRect.Contains(where)) {
-			if (fBackupMessage && Window()) {
-				Window()->PostMessage(fBackupMessage);
-			}
 			return;
 		}
 	}
@@ -807,29 +763,14 @@ SearchBarView::MouseDown(BPoint where)
 bool
 SearchBarView::GetToolTipAt(BPoint point, BToolTip** _tip)
 {
-	// Check if over add query button - only show tooltip if enabled
-	if (HasText() && fHasResults && !IsBodySearch()) {
+	if (HasText() && fHasResults) {
 		BRect addRect = _AddQueryButtonRect();
 		if (addRect.Contains(point)) {
-			SetToolTip(B_TRANSLATE("Create query based on search criteria"));
+			SetToolTip(B_TRANSLATE("Create query based on filter criteria"));
 			return BView::GetToolTipAt(point, _tip);
 		}
 	}
 
-	// Check if over backup button - show tooltip
-	if (fViewHasContent || fBackupActive) {
-		BRect backupRect = _BackupButtonRect();
-		if (backupRect.Contains(point)) {
-			if (fBackupActive)
-				SetToolTip(B_TRANSLATE("Backup in progress" B_UTF8_ELLIPSIS));
-			else
-				SetToolTip(B_TRANSLATE("Backup emails to ZIP file"));
-			return BView::GetToolTipAt(point, _tip);
-		}
-	}
-
-	// Not over buttons - no tooltip from this view
-	// (Clear button has its own tooltip set via BButton::SetToolTip)
 	SetToolTip((const char*)NULL);
 	return false;
 }
@@ -850,7 +791,6 @@ SearchBarView::SetSearchAttribute(SearchAttribute attr)
 {
 	fSearchAttribute = attr;
 
-	// Update menu selection to match
 	BMenu* menu = fAttributeMenu->Menu();
 	if (menu == NULL)
 		return;
@@ -861,10 +801,7 @@ SearchBarView::SetSearchAttribute(SearchAttribute attr)
 		case SEARCH_FROM:     index = 1; break;
 		case SEARCH_TO:       index = 2; break;
 		case SEARCH_ACCOUNT:  index = 3; break;
-		// index 4 = separator
-		case SEARCH_BODY:     index = 5; break;
-		case SEARCH_FULLTEXT: index = 6; break;
-		case SEARCH_THREAD:   index = 0; break;  // Show "Subject" for thread filtering
+		case SEARCH_THREAD:   index = 0; break;
 		default: break;
 	}
 
@@ -882,7 +819,6 @@ SearchBarView::_UpdateOperatorLabel()
 	if (fOperatorMenu != NULL) {
 		BMenu* menu = fOperatorMenu->Menu();
 		if (menu != NULL) {
-			// Index 0 = "that contains", Index 1 = "matches"
 			int32 index = fMatchesMode ? 1 : 0;
 			BMenuItem* item = menu->ItemAt(index);
 			if (item != NULL)
@@ -895,7 +831,14 @@ SearchBarView::_UpdateOperatorLabel()
 void
 SearchBarView::_UpdateClearButtonState()
 {
-	if (fClearButton != NULL) {
+	if (fClearButton != NULL)
 		fClearButton->SetEnabled(HasText());
-	}
+}
+
+
+void
+SearchBarView::_UpdateBodyClearButtonState()
+{
+	if (fBodyClearButton != NULL)
+		fBodyClearButton->SetEnabled(HasBodySearchText());
 }

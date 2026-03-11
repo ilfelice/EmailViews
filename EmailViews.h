@@ -158,6 +158,7 @@ const uint32 MSG_FOCUS_SEARCH = 'fsrc';
 const uint32 MSG_UNDO_DELETE = 'undl';
 const uint32 MSG_MARK_SPAM = 'mspm';
 const uint32 MSG_UNMARK_SPAM = 'uspm';
+const uint32 MSG_BODY_SEARCH_CLEAR = 'bscr';
 
 // Tracker scripting constants (for Mail Next/Previous navigation)
 const uint32 kNextSpecifier = 'snxt';

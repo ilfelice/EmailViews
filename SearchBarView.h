@@ -1,15 +1,18 @@
 /*
- * SearchBarView.h - Search bar with attribute dropdown and action buttons
+ * SearchBarView.h - Filter bar and body search field
  * Distributed under the terms of the MIT License.
  *
- * Layout: [Filter by ▾] [that ▾] [search text field][✕] [+] [ZIP]
+ * Layout: [Filter: ▾] [operator ▾] [text field][×] [+] | Search: [text field         ]
  *
- * The search bar filters the currently loaded email list in-memory (no new
- * query). The attribute dropdown selects which field to search (Subject,
+ * The filter bar narrows the currently loaded email list using BFS attribute
+ * queries. The attribute dropdown selects which field to filter (Subject,
  * From, To, Account). The operator dropdown selects between "contains"
  * (substring) and "matches" (exact). The [+] button saves the current
- * search as a persistent custom query. The [ZIP] button exports the
- * currently visible emails to a ZIP backup file.
+ * filter as a persistent custom query.
+ *
+ * The body search field on the right searches email body content. It always
+ * includes headers in the search (full-text mode). The search runs as a
+ * second pass over whatever the current BFS query loaded.
  */
 
 #ifndef SEARCH_BAR_VIEW_H
@@ -25,22 +28,24 @@ class BBitmap;
 class BButton;
 class BMessageRunner;
 
-// Search attribute options
+// Search attribute options (filter field only — no body/fulltext)
 enum SearchAttribute {
 	SEARCH_ALL = 0,
 	SEARCH_SUBJECT,
 	SEARCH_FROM,
 	SEARCH_TO,
 	SEARCH_ACCOUNT,
-	SEARCH_THREAD,
-	SEARCH_BODY,
-	SEARCH_FULLTEXT
+	SEARCH_THREAD
 };
 
 // Message for attribute menu selection
 const uint32 MSG_SEARCH_ATTRIBUTE = 'srat';
 const uint32 MSG_SEARCH_OPERATOR = 'srop';
 const uint32 MSG_CLEAR_BUTTON_CLICKED = 'clbt';
+
+// Messages for body search field
+const uint32 MSG_BODY_SEARCH_INVOKED = 'bsiv';
+const uint32 MSG_BODY_CLEAR_CLICKED = 'bscl';
 
 
 // Custom text control wrapper that draws border around PlaceholderTextView
@@ -75,11 +80,12 @@ private:
 };
 
 
-// Search bar with attribute dropdown, text field, and clear/add query/backup buttons
+// Search bar with attribute filter on the left and body search on the right
 class SearchBarView : public BView {
 public:
 	SearchBarView(BMessage* searchMessage, BMessage* clearMessage,
-		BMessage* addQueryMessage, BMessage* backupMessage);
+		BMessage* addQueryMessage,
+		BMessage* bodySearchMessage, BMessage* bodyClearMessage);
 	virtual ~SearchBarView();
 
 	virtual void AttachedToWindow();
@@ -93,6 +99,7 @@ public:
 	// Override to allow window to resize narrower
 	virtual BSize MinSize() override;
 
+	// Filter field accessors
 	const char* Text() const;
 	void SetText(const char* text);
 	BTextView* TextView() const;
@@ -104,30 +111,30 @@ public:
 	void SetViewHasContent(bool hasContent);
 	void SetLoading(bool loading);
 	SearchAttribute GetSearchAttribute() const { return fSearchAttribute; }
-	bool IsBodySearch() const
-		{ return fSearchAttribute == SEARCH_BODY
-			|| fSearchAttribute == SEARCH_FULLTEXT; }
 
 	// Exact match filter support
 	void SetMatchesMode(bool matches);
 	bool IsMatchesMode() const { return fMatchesMode; }
 	void SetSearchAttribute(SearchAttribute attr);
 
-	// Backup progress animation
-	void SetBackupActive(bool active);
-	bool IsBackupActive() const { return fBackupActive; }
+	// Body search field accessors
+	const char* BodySearchText() const;
+	void SetBodySearchText(const char* text);
+	BTextView* BodySearchTextView() const;
+	bool HasBodySearchText() const;
 
 	// Body search state — swaps clear button icon/tooltip
 	void SetBodySearchRunning(bool running);
 
-	// Email count status and loading indicator
+	// Focus the body search field
+	void MakeFocusBodySearch();
 
 private:
 	void _LoadIcons();
 	BRect _AddQueryButtonRect() const;
-	BRect _BackupButtonRect() const;
 	void _UpdateOperatorLabel();
 	void _UpdateClearButtonState();
+	void _UpdateBodyClearButtonState();
 
 	BMenuField* fAttributeMenu;
 	BMenuField* fOperatorMenu;
@@ -135,23 +142,26 @@ private:
 	BButton* fClearButton;
 	BMessage* fClearMessage;
 	BMessage* fAddQueryMessage;
-	BMessage* fBackupMessage;
 	BBitmap* fClearIcon;
 	BBitmap* fStopIcon;
 	BBitmap* fAddQueryIcon;
-	BBitmap* fBackupIcon;
 	BMessageRunner* fSearchDebounceRunner;
-	BMessageRunner* fBackupDotsRunner;
 	float fButtonSize;
 	bool fSearchExecuted;
 	bool fHasResults;
-	bool fViewHasContent;  // True when email list has any content (for backup button)
+	bool fViewHasContent;  // True when email list has any content
 	bool fLoading;         // True while email list is still loading
 	bool fSettingTextProgrammatically;  // Suppress _mod reset during programmatic SetText
 	SearchAttribute fSearchAttribute;
 	bool fMatchesMode;
-	bool fBackupActive;
-	int32 fBackupDot;
+
+	// Body search field (right side)
+	SearchTextControl* fBodySearchControl;
+	BButton* fBodyClearButton;
+	BMessage* fBodySearchMessage;
+	BMessage* fBodyClearMessage;
+	BBitmap* fBodyClearIcon;
+	BBitmap* fBodyStopIcon;
 };
 
 #endif // SEARCH_BAR_VIEW_H
