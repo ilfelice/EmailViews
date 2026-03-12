@@ -1323,37 +1323,42 @@ void EmailViewsWindow::LoadQueries()
     const float kBuiltInTextOffset = kLeftMargin + kBuiltInIconSize + kIconTextGap;
     const float kCustomTextOffset  = kLeftMargin + kCustomIconSize  + kIconTextGap;
     
-    fQueryList->AddItem(new QueryItem(B_TRANSLATE("All emails"), "((BEOS:TYPE==\"text/x-email\")&&(MAIL:subject=*))", LoadIconFromResource("MailQueryAllEmails", kBuiltInIconSize), true, false, kBuiltInIconSize));
-    float allMailWidth = font.StringWidth(B_TRANSLATE("All emails")) + kBuiltInTextOffset;
-    if (allMailWidth > maxWidth) maxWidth = allMailWidth;
+    // 1. Inbox — incoming emails (New, Read, Replied)
+    fQueryList->AddItem(new QueryItem(B_TRANSLATE("Inbox"), "(BEOS:TYPE==\"text/x-email\")&&((MAIL:status==New)||(MAIL:status==Read)||(MAIL:status==Replied))", LoadIconFromResource("MailQueryInbox", kBuiltInIconSize), true, false, kBuiltInIconSize));
+    float inboxWidth = font.StringWidth(B_TRANSLATE("Inbox")) + font.StringWidth(" (999)") + kBuiltInTextOffset;
+    if (inboxWidth > maxWidth) maxWidth = inboxWidth;
     
-    // Unread emails second (includes New and Seen statuses)
+    // 2. Unread emails (includes New and Seen statuses)
     fQueryList->AddItem(new QueryItem(B_TRANSLATE("Unread emails"), "(BEOS:TYPE==\"text/x-email\")&&((MAIL:status==New)||(MAIL:status==Seen))", LoadIconFromResource("MailQueryUnreadEmpty", kBuiltInIconSize), true, false, kBuiltInIconSize));
-    // Account for count text like " (999)"
     float unreadMailWidth = font.StringWidth(B_TRANSLATE("Unread emails")) + font.StringWidth(" (999)") + kBuiltInTextOffset;
     if (unreadMailWidth > maxWidth) maxWidth = unreadMailWidth;
     
-    // Sent emails third
+    // 3. Sent emails
     fQueryList->AddItem(new QueryItem(B_TRANSLATE("Sent emails"), "(BEOS:TYPE==\"text/x-email\")&&(MAIL:status==Sent)", LoadIconFromResource("MailQuerySent", kBuiltInIconSize), true, false, kBuiltInIconSize));
     float sentMailWidth = font.StringWidth(B_TRANSLATE("Sent emails")) + font.StringWidth(" (999)") + kBuiltInTextOffset;
     if (sentMailWidth > maxWidth) maxWidth = sentMailWidth;
     
-    // Emails with attachments fourth
-    fQueryList->AddItem(new QueryItem(B_TRANSLATE("With attachments"), "[ATTACHMENTS]((BEOS:TYPE==\"text/x-email\")&&(MAIL:subject=*))", LoadIconFromResource("MailQueryAttachments", kBuiltInIconSize), true, false, kBuiltInIconSize));
-    float attachMailWidth = font.StringWidth(B_TRANSLATE("With attachments")) + font.StringWidth(" (999)") + kBuiltInTextOffset;
-    if (attachMailWidth > maxWidth) maxWidth = attachMailWidth;
-    
-    // Draft emails fifth
-    fQueryList->AddItem(new QueryItem(B_TRANSLATE("Draft emails"), "MAIL:draft==1", LoadIconFromResource("MailQueryDrafts", kBuiltInIconSize), true, false, kBuiltInIconSize));
-    float draftMailWidth = font.StringWidth(B_TRANSLATE("Draft emails")) + font.StringWidth(" (999)") + kBuiltInTextOffset;
-    if (draftMailWidth > maxWidth) maxWidth = draftMailWidth;
-    
-    // Starred emails sixth
+    // 4. Starred emails
     fQueryList->AddItem(new QueryItem(B_TRANSLATE("Starred emails"), "((BEOS:TYPE==\"text/x-email\")&&(MAIL:subject=*)&&(FILE:starred==1))", LoadIconFromResource("MailQueryStarred", kBuiltInIconSize), true, false, kBuiltInIconSize));
     float starMailWidth = font.StringWidth(B_TRANSLATE("Starred emails")) + font.StringWidth(" (999)") + kBuiltInTextOffset;
     if (starMailWidth > maxWidth) maxWidth = starMailWidth;
     
-    // Spam emails — uses MAIL:classification attribute set by spamdbm
+    // 5. All emails
+    fQueryList->AddItem(new QueryItem(B_TRANSLATE("All emails"), "((BEOS:TYPE==\"text/x-email\")&&(MAIL:subject=*))", LoadIconFromResource("MailQueryAllEmails", kBuiltInIconSize), true, false, kBuiltInIconSize));
+    float allMailWidth = font.StringWidth(B_TRANSLATE("All emails")) + kBuiltInTextOffset;
+    if (allMailWidth > maxWidth) maxWidth = allMailWidth;
+    
+    // 6. Draft emails
+    fQueryList->AddItem(new QueryItem(B_TRANSLATE("Draft emails"), "MAIL:draft==1", LoadIconFromResource("MailQueryDrafts", kBuiltInIconSize), true, false, kBuiltInIconSize));
+    float draftMailWidth = font.StringWidth(B_TRANSLATE("Draft emails")) + font.StringWidth(" (999)") + kBuiltInTextOffset;
+    if (draftMailWidth > maxWidth) maxWidth = draftMailWidth;
+    
+    // 7. With attachments
+    fQueryList->AddItem(new QueryItem(B_TRANSLATE("With attachments"), "[ATTACHMENTS]((BEOS:TYPE==\"text/x-email\")&&(MAIL:subject=*))", LoadIconFromResource("MailQueryAttachments", kBuiltInIconSize), true, false, kBuiltInIconSize));
+    float attachMailWidth = font.StringWidth(B_TRANSLATE("With attachments")) + font.StringWidth(" (999)") + kBuiltInTextOffset;
+    if (attachMailWidth > maxWidth) maxWidth = attachMailWidth;
+    
+    // 8. Spam — uses MAIL:classification attribute set by spamdbm
     fQueryList->AddItem(new QueryItem(B_TRANSLATE("Spam"), "[SPAM]((BEOS:TYPE==\"text/x-email\")&&(MAIL:subject=*))", LoadIconFromResource("MailQuerySpam", kBuiltInIconSize), true, false, kBuiltInIconSize));
     float spamMailWidth = font.StringWidth(B_TRANSLATE("Spam")) + font.StringWidth(" (999)") + kBuiltInTextOffset;
     if (spamMailWidth > maxWidth) maxWidth = spamMailWidth;
@@ -4523,7 +4528,7 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
                             fPreservedSearchMatches.clear();
                             
                             // Step 4: Launch body search with full scope
-                            fSearchField->SetSearchExecuted(true);
+                            fSearchField->SetSearchExecuted(fSearchField->HasText());
                             fSearchField->SetBodySearchRunning(true);
                             fEmailList->StartBodySearch(
                                 fPendingBodySearchText.String(),
@@ -4536,7 +4541,7 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
                                 delete (entry_ref*)fullScope.ItemAt(i);
                         } else {
                             // No preserved matches — fresh search
-                            fSearchField->SetSearchExecuted(true);
+                            fSearchField->SetSearchExecuted(fSearchField->HasText());
                             fSearchField->SetBodySearchRunning(true);
                             fEmailList->StartBodySearch(
                                 fPendingBodySearchText.String(),
@@ -5565,8 +5570,15 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
                 QueryItem* item = dynamic_cast<QueryItem*>(listItem);
                 if (item && item->IsQuery()) {
                     BString label;
-                    if (strstr(item->GetPath(), "MAIL:status==New") != NULL || 
-                        strstr(item->GetPath(), "MAIL:status==Seen") != NULL) {
+                    if (strstr(item->GetPath(), "MAIL:status==Replied") != NULL) {
+                        // Inbox — show unread count (same as Unread view)
+                        if (fCachedNewCount > 0) {
+                            label.SetToFormat(B_TRANSLATE("Inbox (%ld)"), fCachedNewCount);
+                        } else {
+                            label = B_TRANSLATE("Inbox");
+                        }
+                        item->SetText(label.String());
+                    } else if (strstr(item->GetPath(), "MAIL:status==Seen") != NULL) {
                         if (fCachedNewCount > 0) {
                             label.SetToFormat(B_TRANSLATE("Unread emails (%ld)"), fCachedNewCount);
                         } else {
@@ -5754,6 +5766,20 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
                 fEmailList->StopLoadingDots();
             }
             
+            // If a previous body search already narrowed the list, reload
+            // from the attribute filter so the new search runs on the full
+            // BFS result set. ApplySearchFilter() detects the body search
+            // text and sets up a pending search automatically.
+            // Clear the list first so ApplySearchFilter() doesn't save the
+            // old search results as preserved matches.
+            if (fSearchField->IsBodySearchActive()) {
+                fSearchField->SetBodySearchActive(false);
+                fPreservedSearchMatches.clear();
+                fEmailList->Clear();
+                ApplySearchFilter();
+                break;
+            }
+            
             // If a BFS query is still loading, set up a pending body search
             // that will launch when the query completes.
             if (fEmailList->IsLoading()) {
@@ -5911,7 +5937,7 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
                 }
             }
             
-            // Fall back to "All Emails" if saved view not found
+            // Fall back to first built-in query if saved view not found
             if (!viewRestored && fQueryList->CountItems() > 0) {
                 fQueryList->Select(0);
                 BListItem* listItem = fQueryList->ItemAt(0);
@@ -5920,7 +5946,7 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
                     fCurrentViewItem = item;
                     LoadColumnPrefsForView(item);
                     fBaseQuery = item->GetPath();
-                    fprintf(stderr, "MSG_DEFERRED_INIT: Fallback to All Emails, query: %s\n", fBaseQuery.String());
+                    fprintf(stderr, "MSG_DEFERRED_INIT: Fallback to first query: %s\n", fBaseQuery.String());
                     ApplySearchFilter();
                 }
             }

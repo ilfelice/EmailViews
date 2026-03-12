@@ -128,6 +128,7 @@ public:
 
 	// Body search active — results are still filtered even if text was cleared
 	void SetBodySearchActive(bool active);
+	bool IsBodySearchActive() const { return fBodySearchActive; }
 
 	// Focus the body search field
 	void MakeFocusBodySearch();
