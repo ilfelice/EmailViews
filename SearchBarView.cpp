@@ -219,7 +219,8 @@ SearchBarView::SearchBarView(BMessage* searchMessage, BMessage* clearMessage,
 	fBodySearchMessage(bodySearchMessage),
 	fBodyClearMessage(bodyClearMessage),
 	fBodyClearIcon(NULL),
-	fBodyStopIcon(NULL)
+	fBodyStopIcon(NULL),
+	fBodySearchActive(false)
 {
 	SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
 
@@ -507,13 +508,8 @@ SearchBarView::MessageReceived(BMessage* message)
 				break;
 			}
 			
-			bool wasSearchExecuted = fSearchExecuted;
-			fSearchExecuted = false;
 			Invalidate(_AddQueryButtonRect());
 			_UpdateClearButtonState();
-
-			if (!HasText() && wasSearchExecuted && Window())
-				Window()->PostMessage(new BMessage(MSG_SEARCH_MODIFIED));
 			break;
 		}
 
@@ -671,6 +667,7 @@ SearchBarView::SetSearchExecuted(bool executed)
 	if (fSearchExecuted != executed) {
 		fSearchExecuted = executed;
 		Invalidate(_AddQueryButtonRect());
+		_UpdateClearButtonState();
 	}
 }
 
@@ -708,6 +705,7 @@ SearchBarView::SetBodySearchRunning(bool running)
 		return;
 
 	if (running) {
+		fBodySearchActive = true;
 		if (fBodyStopIcon != NULL)
 			fBodyClearButton->SetIcon(fBodyStopIcon);
 		fBodyClearButton->SetToolTip(B_TRANSLATE("Abort search"));
@@ -718,6 +716,14 @@ SearchBarView::SetBodySearchRunning(bool running)
 		fBodyClearButton->SetToolTip(B_TRANSLATE("Clear search"));
 		_UpdateBodyClearButtonState();
 	}
+}
+
+
+void
+SearchBarView::SetBodySearchActive(bool active)
+{
+	fBodySearchActive = active;
+	_UpdateBodyClearButtonState();
 }
 
 
@@ -833,7 +839,7 @@ void
 SearchBarView::_UpdateClearButtonState()
 {
 	if (fClearButton != NULL)
-		fClearButton->SetEnabled(HasText());
+		fClearButton->SetEnabled(HasText() || fSearchExecuted);
 }
 
 
@@ -841,5 +847,5 @@ void
 SearchBarView::_UpdateBodyClearButtonState()
 {
 	if (fBodyClearButton != NULL)
-		fBodyClearButton->SetEnabled(HasBodySearchText());
+		fBodyClearButton->SetEnabled(HasBodySearchText() || fBodySearchActive);
 }

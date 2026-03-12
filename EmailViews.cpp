@@ -3341,6 +3341,7 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
                     
                     // Clear search fields when switching folders (but keep time range)
                     fSearchField->SetText("");
+                    fSearchField->SetBodySearchActive(false);
                     fSearchField->SetBodySearchText("");
                     fSearchField->SetHasResults(false);
                     fIsSearchActive = false;
@@ -3448,6 +3449,7 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
             
             // Clear search fields when switching to trash
             fSearchField->SetText("");
+            fSearchField->SetBodySearchActive(false);
             fSearchField->SetBodySearchText("");
             fSearchField->SetHasResults(false);
             fIsSearchActive = false;
@@ -5800,7 +5802,8 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
             fPendingBodySearch = false;
             fPendingBodySearchText.SetTo("");
             
-            // Clear the body search text
+            // Clear the body search text and active flag
+            fSearchField->SetBodySearchActive(false);
             fSearchField->SetBodySearchText("");
             
             // Reload the current view (filter only, no body search)
@@ -6938,6 +6941,7 @@ bool EmailViewsWindow::SelectBuiltInQueryByName(const char* name)
                 
                 // Clear search fields when switching folders
                 fSearchField->SetText("");
+                fSearchField->SetBodySearchActive(false);
                 fSearchField->SetBodySearchText("");
                 fSearchField->SetHasResults(false);
                 fIsSearchActive = false;

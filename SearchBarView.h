@@ -126,6 +126,9 @@ public:
 	// Body search state — swaps clear button icon/tooltip
 	void SetBodySearchRunning(bool running);
 
+	// Body search active — results are still filtered even if text was cleared
+	void SetBodySearchActive(bool active);
+
 	// Focus the body search field
 	void MakeFocusBodySearch();
 
@@ -162,6 +165,7 @@ private:
 	BMessage* fBodyClearMessage;
 	BBitmap* fBodyClearIcon;
 	BBitmap* fBodyStopIcon;
+	bool fBodySearchActive;  // True while results are filtered by body search
 };
 
 #endif // SEARCH_BAR_VIEW_H
