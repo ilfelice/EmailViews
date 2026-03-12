@@ -3639,6 +3639,17 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
         }
         
         case MSG_SELECT_ALL_EMAILS: {
+            // If a search field has focus, select all text there instead
+            {
+                BView* focused = CurrentFocus();
+                if (focused == fSearchField->TextView()
+                    || focused == fSearchField->BodySearchTextView()) {
+                    BTextView* tv = dynamic_cast<BTextView*>(focused);
+                    if (tv != NULL)
+                        tv->SelectAll();
+                    break;
+                }
+            }
             // Ignore during loading to avoid freeze from mass selection
             // while the loader thread is still populating the list
             if (fEmailList->IsLoading())
@@ -4579,8 +4590,19 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
                 }
                 
                 // Give the email list keyboard focus when loading completes
-                // so Alt+A and keyboard navigation work without requiring a click
-                fEmailList->MakeFocus(true);
+                // so Alt+A and keyboard navigation work without requiring a click.
+                // Skip if a search field currently has focus (e.g. user tabbed
+                // between filter and body search fields which triggered this reload).
+                {
+                    BView* focused = CurrentFocus();
+                    bool searchHasFocus = false;
+                    if (focused != NULL) {
+                        searchHasFocus = (focused == fSearchField->TextView()
+                            || focused == fSearchField->BodySearchTextView());
+                    }
+                    if (!searchHasFocus)
+                        fEmailList->MakeFocus(true);
+                }
             }
             break;
         }

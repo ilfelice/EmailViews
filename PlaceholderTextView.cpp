@@ -46,9 +46,51 @@ PlaceholderTextView::MakeFocus(bool focus)
 }
 
 
+// Recursively find the first PlaceholderTextView under `root` that is
+// not `exclude`.  Used by Tab handling to jump between the two search
+// fields inside the SearchBarView ancestor without stopping at menu
+// internals or buttons that also carry B_NAVIGABLE.
+static PlaceholderTextView*
+_FindOtherTextView(BView* root, BView* exclude)
+{
+	for (int32 i = 0; i < root->CountChildren(); i++) {
+		BView* child = root->ChildAt(i);
+		if (child == exclude)
+			continue;
+		PlaceholderTextView* ptv = dynamic_cast<PlaceholderTextView*>(child);
+		if (ptv != NULL)
+			return ptv;
+		PlaceholderTextView* found = _FindOtherTextView(child, exclude);
+		if (found != NULL)
+			return found;
+	}
+	return NULL;
+}
+
+
 void
 PlaceholderTextView::KeyDown(const char* bytes, int32 numBytes)
 {
+	if (numBytes == 1 && bytes[0] == B_TAB) {
+		// Navigate to the other search field within our SearchBarView
+		// ancestor instead of inserting a tab character.
+		// Commit the current field first (same as pressing Enter) so the
+		// search executes before focus moves away.
+		if (TextLength() > 0 && fInvokeMessage != NULL && fTarget.IsValid()) {
+			BMessage message(*fInvokeMessage);
+			fTarget.SendMessage(&message);
+		}
+		BView* ancestor = Parent();
+		while (ancestor != NULL
+			&& strcmp(ancestor->Name(), "search_bar") != 0)
+			ancestor = ancestor->Parent();
+		if (ancestor != NULL) {
+			BView* other = _FindOtherTextView(ancestor, this);
+			if (other != NULL)
+				other->MakeFocus(true);
+		}
+		return;
+	}
 	if (numBytes == 1 && bytes[0] == B_ENTER) {
 		// Send invoke message on Enter
 		if (fInvokeMessage != NULL && fTarget.IsValid()) {
