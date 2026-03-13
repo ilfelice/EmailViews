@@ -1338,30 +1338,38 @@ void EmailViewsWindow::LoadQueries()
     float sentMailWidth = font.StringWidth(B_TRANSLATE("Sent emails")) + font.StringWidth(" (999)") + kBuiltInTextOffset;
     if (sentMailWidth > maxWidth) maxWidth = sentMailWidth;
     
-    // 4. Starred emails
+    // 4. Starred emails (optional)
+    if (gReaderSettings == NULL || gReaderSettings->ShowStarredEmails()) {
     fQueryList->AddItem(new QueryItem(B_TRANSLATE("Starred emails"), "((BEOS:TYPE==\"text/x-email\")&&(MAIL:subject=*)&&(FILE:starred==1))", LoadIconFromResource("MailQueryStarred", kBuiltInIconSize), true, false, kBuiltInIconSize));
     float starMailWidth = font.StringWidth(B_TRANSLATE("Starred emails")) + font.StringWidth(" (999)") + kBuiltInTextOffset;
     if (starMailWidth > maxWidth) maxWidth = starMailWidth;
+    }
     
-    // 5. All emails
+    // 5. All emails (optional)
+    if (gReaderSettings == NULL || gReaderSettings->ShowAllEmails()) {
     fQueryList->AddItem(new QueryItem(B_TRANSLATE("All emails"), "((BEOS:TYPE==\"text/x-email\")&&(MAIL:subject=*))", LoadIconFromResource("MailQueryAllEmails", kBuiltInIconSize), true, false, kBuiltInIconSize));
     float allMailWidth = font.StringWidth(B_TRANSLATE("All emails")) + kBuiltInTextOffset;
     if (allMailWidth > maxWidth) maxWidth = allMailWidth;
+    }
     
     // 6. Draft emails
     fQueryList->AddItem(new QueryItem(B_TRANSLATE("Draft emails"), "MAIL:draft==1", LoadIconFromResource("MailQueryDrafts", kBuiltInIconSize), true, false, kBuiltInIconSize));
     float draftMailWidth = font.StringWidth(B_TRANSLATE("Draft emails")) + font.StringWidth(" (999)") + kBuiltInTextOffset;
     if (draftMailWidth > maxWidth) maxWidth = draftMailWidth;
     
-    // 7. With attachments
+    // 7. With attachments (optional)
+    if (gReaderSettings == NULL || gReaderSettings->ShowWithAttachments()) {
     fQueryList->AddItem(new QueryItem(B_TRANSLATE("With attachments"), "[ATTACHMENTS]((BEOS:TYPE==\"text/x-email\")&&(MAIL:subject=*))", LoadIconFromResource("MailQueryAttachments", kBuiltInIconSize), true, false, kBuiltInIconSize));
     float attachMailWidth = font.StringWidth(B_TRANSLATE("With attachments")) + font.StringWidth(" (999)") + kBuiltInTextOffset;
     if (attachMailWidth > maxWidth) maxWidth = attachMailWidth;
+    }
     
-    // 8. Spam — uses MAIL:classification attribute set by spamdbm
+    // 8. Spam — uses MAIL:classification attribute set by spamdbm (optional)
+    if (gReaderSettings == NULL || gReaderSettings->ShowSpamView()) {
     fQueryList->AddItem(new QueryItem(B_TRANSLATE("Spam"), "[SPAM]((BEOS:TYPE==\"text/x-email\")&&(MAIL:subject=*))", LoadIconFromResource("MailQuerySpam", kBuiltInIconSize), true, false, kBuiltInIconSize));
     float spamMailWidth = font.StringWidth(B_TRANSLATE("Spam")) + font.StringWidth(" (999)") + kBuiltInTextOffset;
     if (spamMailWidth > maxWidth) maxWidth = spamMailWidth;
+    }
     
     // Load custom query files from disk
     BPath queriesPath;
@@ -6368,6 +6376,38 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
             // Update toolbar when preferences change
             _UpdateToolBar();
             
+            // Rebuild sidebar only when OK was clicked with changed
+            // visibility settings (flagged by TPrefsWindow)
+            bool sidebarChanged = false;
+            if (message->FindBool("sidebar_changed", &sidebarChanged) == B_OK
+                && sidebarChanged) {
+                BString currentPath;
+                if (fCurrentViewItem != NULL)
+                    currentPath = fCurrentViewItem->GetPath();
+                
+                LoadQueries();
+                
+                // Try to re-select the previous view
+                bool reselected = false;
+                if (currentPath.Length() > 0) {
+                    for (int32 i = 0; i < fQueryList->CountItems(); i++) {
+                        QueryItem* item = dynamic_cast<QueryItem*>(
+                            fQueryList->ItemAt(i));
+                        if (item != NULL && currentPath == item->GetPath()) {
+                            fQueryList->Select(i);
+                            reselected = true;
+                            break;
+                        }
+                    }
+                }
+                
+                // If previous view was hidden, switch to Inbox
+                if (!reselected && fQueryList->CountItems() > 0)
+                    fQueryList->Select(0);
+                
+                ScheduleQueryCountUpdate();
+            }
+            
             // Reload spam blocklist — only update view if it changed
             std::set<BString> oldBlocklist = fSpamBlocklist;
             LoadSpamBlocklist();
@@ -7590,7 +7630,7 @@ void EmailViewsApp::MessageReceived(BMessage* message)
             }
             // Also notify main window to update toolbar
             if (fWindow != NULL)
-                fWindow->PostMessage(PREFS_CHANGED);
+                fWindow->PostMessage(message);
             break;
         
         case M_FONT:

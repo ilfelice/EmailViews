@@ -76,7 +76,11 @@ public:
 									bool* spellCheckStartOn,
 									bool* autoMarkRead, uint8* buttonBar,
 									bool* showTimeRange,
-									bool* useSystemFontSize);
+									bool* useSystemFontSize,
+									bool* showAllEmails,
+									bool* showStarredEmails,
+									bool* showWithAttachments,
+									bool* showSpamView);
 	virtual						~TPrefsWindow();
 
 	virtual	void				MessageReceived(BMessage* message);
@@ -146,6 +150,15 @@ private:
 			bool*				fNewUseSystemFontSize;
 			bool				fUseSystemFontSize;
 
+			bool*				fNewShowAllEmails;
+			bool				fShowAllEmails;
+			bool*				fNewShowStarredEmails;
+			bool				fShowStarredEmails;
+			bool*				fNewShowWithAttachments;
+			bool				fShowWithAttachments;
+			bool*				fNewShowSpamView;
+			bool				fShowSpamView;
+
 			BButton*			fRevert;
 
 			BPopUpMenu*			fFontMenu;
@@ -165,6 +178,12 @@ private:
 			BPopUpMenu*			fButtonBarMenu;
 			BPopUpMenu*			fAutoMarkReadMenu;
 			BPopUpMenu*			fShowTimeRangeMenu;
+
+			// Sidebar visibility checkboxes
+			BCheckBox*			fShowAllEmailsCheckBox;
+			BCheckBox*			fShowStarredCheckBox;
+			BCheckBox*			fShowAttachmentsCheckBox;
+			BCheckBox*			fShowSpamCheckBox;
 
 			BListView*			fBlocklistView;
 			BScrollView*		fBlocklistScrollView;

@@ -84,7 +84,8 @@ enum P_MESSAGES {
 	P_ACCOUNT, P_REPLYTO, P_REPLY_PREAMBLE,
 	P_COLORED_QUOTES, P_MARK_READ, P_SHOW_TIME_RANGE,
 	P_USE_SYSTEM_FONT_SIZE,
-	P_BLOCK_ADD, P_BLOCK_REMOVE, P_BLOCK_SELECTION, P_BLOCK_FILTER
+	P_BLOCK_ADD, P_BLOCK_REMOVE, P_BLOCK_SELECTION, P_BLOCK_FILTER,
+	P_SHOW_ALL_EMAILS, P_SHOW_STARRED, P_SHOW_ATTACHMENTS, P_SHOW_SPAM
 };
 
 
@@ -105,7 +106,9 @@ TPrefsWindow::TPrefsWindow(BPoint leftTop, BFont* font, int32* level,
 	bool* wrap, bool* attachAttributes, bool* cquotes, int32* account,
 	int32* replyTo, char** preamble, char** sig, uint32* encoding,
 	bool* warnUnencodable, bool* spellCheckStartOn, bool* autoMarkRead,
-	uint8* buttonBar, bool* showTimeRange, bool* useSystemFontSize)
+	uint8* buttonBar, bool* showTimeRange, bool* useSystemFontSize,
+	bool* showAllEmails, bool* showStarredEmails,
+	bool* showWithAttachments, bool* showSpamView)
 	:
 	BWindow(BRect(leftTop.x, leftTop.y, leftTop.x + 100, leftTop.y + 100),
 		B_TRANSLATE("Email preferences"),
@@ -153,7 +156,16 @@ TPrefsWindow::TPrefsWindow(BPoint leftTop, BFont* font, int32* level,
 	fNewShowTimeRange(showTimeRange),
 	fShowTimeRange(*showTimeRange),
 	fNewUseSystemFontSize(useSystemFontSize),
-	fUseSystemFontSize(*useSystemFontSize)
+	fUseSystemFontSize(*useSystemFontSize),
+
+	fNewShowAllEmails(showAllEmails),
+	fShowAllEmails(*showAllEmails),
+	fNewShowStarredEmails(showStarredEmails),
+	fShowStarredEmails(*showStarredEmails),
+	fNewShowWithAttachments(showWithAttachments),
+	fShowWithAttachments(*showWithAttachments),
+	fNewShowSpamView(showSpamView),
+	fShowSpamView(*showSpamView)
 {
 	strcpy(fSignature, *fNewSignature);
 
@@ -165,9 +177,12 @@ TPrefsWindow::TPrefsWindow(BPoint leftTop, BFont* font, int32* level,
 
 	BTabView* tabView = new BTabView("prefTabs", B_WIDTH_FROM_LABEL);
 
-	BGridView* interfaceView = new BGridView(B_TRANSLATE("User interface"));
-	BGridLayout* interfaceLayout = interfaceView->GridLayout();
-	interfaceLayout->SetInsets(B_USE_DEFAULT_SPACING);
+	BView* interfaceView = new BView(B_TRANSLATE("User interface"), 0);
+	interfaceView->SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
+
+	BGridView* interfaceGrid = new BGridView();
+	BGridLayout* interfaceLayout = interfaceGrid->GridLayout();
+	interfaceLayout->SetColumnWeight(1, 1.0f);
 
 	BGridView* mailView = new BGridView(B_TRANSLATE("Mailing"));
 	BGridLayout* mailLayout = mailView->GridLayout();
@@ -177,7 +192,7 @@ TPrefsWindow::TPrefsWindow(BPoint leftTop, BFont* font, int32* level,
 	tabView->AddTab(mailView);
 
 	// Spam filtering tab
-	BView* spamView = new BView(B_TRANSLATE("Spam filtering"), 0);
+	BView* spamView = new BView(B_TRANSLATE("Spam filter"), 0);
 	spamView->SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
 
 	fBlocklistView = new BListView("blocklist");
@@ -239,17 +254,26 @@ TPrefsWindow::TPrefsWindow(BPoint leftTop, BFont* font, int32* level,
 
 	fButtonBarMenu = _BuildButtonBarMenu(*buttonBar);
 	menu = new BMenuField("bar", B_TRANSLATE("Toolbar:"), fButtonBarMenu);
-	add_menu_to_layout(menu, interfaceLayout, layoutRow);
+	menu->SetAlignment(B_ALIGN_RIGHT);
+	interfaceLayout->AddItem(menu->CreateLabelLayoutItem(), 0, layoutRow);
+	interfaceLayout->AddItem(menu->CreateMenuBarLayoutItem(), 1, layoutRow);
+	layoutRow++;
 
 	fShowTimeRangeMenu = _BuildShowTimeRangeMenu(fShowTimeRange);
 	menu = new BMenuField("showTimeRange",
 		B_TRANSLATE("Time range slider:"),
 		fShowTimeRangeMenu);
-	add_menu_to_layout(menu, interfaceLayout, layoutRow);
+	menu->SetAlignment(B_ALIGN_RIGHT);
+	interfaceLayout->AddItem(menu->CreateLabelLayoutItem(), 0, layoutRow);
+	interfaceLayout->AddItem(menu->CreateMenuBarLayoutItem(), 1, layoutRow);
+	layoutRow++;
 
 	fFontMenu = _BuildFontMenu(font);
 	menu = new BMenuField("font", B_TRANSLATE("Font:"), fFontMenu);
-	add_menu_to_layout(menu, interfaceLayout, layoutRow);
+	menu->SetAlignment(B_ALIGN_RIGHT);
+	interfaceLayout->AddItem(menu->CreateLabelLayoutItem(), 0, layoutRow);
+	interfaceLayout->AddItem(menu->CreateMenuBarLayoutItem(), 1, layoutRow);
+	layoutRow++;
 
 	// Size spinner + "Use system font size" checkbox on the same row.
 	// If the flag is on, show the current system size and disable the spinner.
@@ -264,35 +288,70 @@ TPrefsWindow::TPrefsWindow(BPoint leftTop, BFont* font, int32* level,
 	fSizeSpinner->SetEnabled(!fUseSystemFontSize);
 
 	fUseSystemFontSizeCheckBox = new BCheckBox("useSystemFontSize",
-		B_TRANSLATE("Use system font size"),
+		B_TRANSLATE("Use system fixed font size"),
 		new BMessage(P_USE_SYSTEM_FONT_SIZE));
 	fUseSystemFontSizeCheckBox->SetValue(
 		fUseSystemFontSize ? B_CONTROL_ON : B_CONTROL_OFF);
 
 	// Separate label in col 0 for alignment with other rows.
-	// Spinner as whole view in col 1 for correct row height.
-	// Checkbox in col 2.
+	// Spinner and checkbox grouped horizontally in col 1.
+	BGroupView* sizeGroup = new BGroupView(B_HORIZONTAL, B_USE_DEFAULT_SPACING);
+	BLayoutBuilder::Group<>(sizeGroup, B_HORIZONTAL, B_USE_DEFAULT_SPACING)
+		.Add(fSizeSpinner)
+		.AddGlue()
+		.Add(fUseSystemFontSizeCheckBox);
+
 	interfaceLayout->AddView(sizeLabel, 0, layoutRow);
-	interfaceLayout->AddView(fSizeSpinner, 1, layoutRow);
-	interfaceLayout->AddView(fUseSystemFontSizeCheckBox, 2, layoutRow);
+	interfaceLayout->AddView(sizeGroup, 1, layoutRow);
 	layoutRow++;
 
-	fColoredQuotesMenu = _BuildColoredQuotesMenu(fColoredQuotes);
-	menu = new BMenuField("cquotes", B_TRANSLATE("Colored quotes:"),
-		fColoredQuotesMenu);
-	add_menu_to_layout(menu, interfaceLayout, layoutRow);
+	// Optional sidebar views section — checkboxes inside a BBox for
+	// toggling visibility of non-essential built-in query views.
+	fShowAllEmailsCheckBox = new BCheckBox("showAllEmails",
+		B_TRANSLATE("All emails"), new BMessage(P_SHOW_ALL_EMAILS));
+	fShowAllEmailsCheckBox->SetValue(
+		fShowAllEmails ? B_CONTROL_ON : B_CONTROL_OFF);
 
-	fSpellCheckStartOnMenu = _BuildSpellCheckStartOnMenu(fSpellCheckStartOn);
-	menu = new BMenuField("spellCheckStartOn",
-		B_TRANSLATE("Initial spell check mode:"),
-		fSpellCheckStartOnMenu);
-	add_menu_to_layout(menu, interfaceLayout, layoutRow);
+	fShowStarredCheckBox = new BCheckBox("showStarred",
+		B_TRANSLATE("Starred emails"), new BMessage(P_SHOW_STARRED));
+	fShowStarredCheckBox->SetValue(
+		fShowStarredEmails ? B_CONTROL_ON : B_CONTROL_OFF);
 
-	fAutoMarkReadMenu = _BuildAutoMarkReadMenu(fAutoMarkRead);
-	menu = new BMenuField("autoMarkRead",
-		B_TRANSLATE("Automatically mark mail as read:"),
-		fAutoMarkReadMenu);
-	add_menu_to_layout(menu, interfaceLayout, layoutRow);
+	fShowAttachmentsCheckBox = new BCheckBox("showAttachments",
+		B_TRANSLATE("With attachments"), new BMessage(P_SHOW_ATTACHMENTS));
+	fShowAttachmentsCheckBox->SetValue(
+		fShowWithAttachments ? B_CONTROL_ON : B_CONTROL_OFF);
+
+	fShowSpamCheckBox = new BCheckBox("showSpam",
+		B_TRANSLATE("Spam"), new BMessage(P_SHOW_SPAM));
+	fShowSpamCheckBox->SetValue(
+		fShowSpamView ? B_CONTROL_ON : B_CONTROL_OFF);
+
+	BStringView* sidebarHint = new BStringView("sidebarHint",
+		B_TRANSLATE("Check the query views you want visible in the sidebar."));
+	sidebarHint->SetHighUIColor(B_PANEL_TEXT_COLOR, B_DISABLED_LABEL_TINT);
+
+	BBox* sidebarBox = new BBox("sidebarBox");
+	sidebarBox->SetLabel(B_TRANSLATE("Optional sidebar views"));
+
+	BGroupView* sidebarContent = new BGroupView(B_VERTICAL, 0);
+	BLayoutBuilder::Group<>(sidebarContent, B_VERTICAL, 0)
+		.SetInsets(B_USE_SMALL_SPACING, B_USE_SMALL_SPACING,
+			B_USE_SMALL_SPACING, B_USE_SMALL_SPACING)
+		.Add(sidebarHint)
+		.AddStrut(B_USE_SMALL_SPACING)
+		.Add(fShowAllEmailsCheckBox)
+		.Add(fShowStarredCheckBox)
+		.Add(fShowAttachmentsCheckBox)
+		.Add(fShowSpamCheckBox);
+	sidebarBox->AddChild(sidebarContent);
+
+	BLayoutBuilder::Group<>(interfaceView, B_VERTICAL, B_USE_DEFAULT_SPACING)
+		.SetInsets(B_USE_DEFAULT_SPACING)
+		.Add(interfaceGrid)
+		.AddStrut(B_USE_HALF_ITEM_SPACING)
+		.Add(sidebarBox)
+		.AddGlue();
 	// Mail Accounts
 
 	layoutRow = 0;
@@ -345,6 +404,23 @@ TPrefsWindow::TPrefsWindow(BPoint leftTop, BFont* font, int32* level,
 	fAttachAttributesMenu = _BuildAttachAttributesMenu(*attachAttributes);
 	menu = new BMenuField("attachAttributes", B_TRANSLATE("Attach attributes:"),
 		fAttachAttributesMenu);
+	add_menu_to_layout(menu, mailLayout, layoutRow);
+
+	fColoredQuotesMenu = _BuildColoredQuotesMenu(fColoredQuotes);
+	menu = new BMenuField("cquotes", B_TRANSLATE("Colored quotes:"),
+		fColoredQuotesMenu);
+	add_menu_to_layout(menu, mailLayout, layoutRow);
+
+	fSpellCheckStartOnMenu = _BuildSpellCheckStartOnMenu(fSpellCheckStartOn);
+	menu = new BMenuField("spellCheckStartOn",
+		B_TRANSLATE("Initial spell check mode:"),
+		fSpellCheckStartOnMenu);
+	add_menu_to_layout(menu, mailLayout, layoutRow);
+
+	fAutoMarkReadMenu = _BuildAutoMarkReadMenu(fAutoMarkRead);
+	menu = new BMenuField("autoMarkRead",
+		B_TRANSLATE("Auto mark email as read:"),
+		fAutoMarkReadMenu);
 	add_menu_to_layout(menu, mailLayout, layoutRow);
 
 	BLayoutBuilder::Group<>(this, B_VERTICAL, 0)
@@ -412,7 +488,17 @@ TPrefsWindow::MessageReceived(BMessage* msg)
 				strcpy(*fNewPreamble, fReplyPreamble->Text());
 			}
 			_SaveBlocklist();
-			be_app->PostMessage(PREFS_CHANGED);
+			{
+				BMessage prefsChanged(PREFS_CHANGED);
+				// Flag sidebar rebuild only if visibility settings changed
+				if (*fNewShowAllEmails != fShowAllEmails
+					|| *fNewShowStarredEmails != fShowStarredEmails
+					|| *fNewShowWithAttachments != fShowWithAttachments
+					|| *fNewShowSpamView != fShowSpamView) {
+					prefsChanged.AddBool("sidebar_changed", true);
+				}
+				be_app->PostMessage(&prefsChanged);
+			}
 			Quit();
 			break;
 
@@ -456,10 +542,22 @@ TPrefsWindow::MessageReceived(BMessage* msg)
 			*fNewButtonBar = fButtonBar;
 			*fNewShowTimeRange = fShowTimeRange;
 			*fNewUseSystemFontSize = fUseSystemFontSize;
+			*fNewShowAllEmails = fShowAllEmails;
+			*fNewShowStarredEmails = fShowStarredEmails;
+			*fNewShowWithAttachments = fShowWithAttachments;
+			*fNewShowSpamView = fShowSpamView;
 			if (revert) {
 				fUseSystemFontSizeCheckBox->SetValue(
 					fUseSystemFontSize ? B_CONTROL_ON : B_CONTROL_OFF);
 				fSizeSpinner->SetEnabled(!fUseSystemFontSize);
+				fShowAllEmailsCheckBox->SetValue(
+					fShowAllEmails ? B_CONTROL_ON : B_CONTROL_OFF);
+				fShowStarredCheckBox->SetValue(
+					fShowStarredEmails ? B_CONTROL_ON : B_CONTROL_OFF);
+				fShowAttachmentsCheckBox->SetValue(
+					fShowWithAttachments ? B_CONTROL_ON : B_CONTROL_OFF);
+				fShowSpamCheckBox->SetValue(
+					fShowSpamView ? B_CONTROL_ON : B_CONTROL_OFF);
 			}
 
 			be_app->PostMessage(PREFS_CHANGED);
@@ -645,6 +743,27 @@ TPrefsWindow::MessageReceived(BMessage* msg)
 			be_app->PostMessage(PREFS_CHANGED);
 			break;
 		}
+
+		case P_SHOW_ALL_EMAILS:
+			*fNewShowAllEmails =
+				(fShowAllEmailsCheckBox->Value() == B_CONTROL_ON);
+			fRevert->SetEnabled(true);
+			break;
+		case P_SHOW_STARRED:
+			*fNewShowStarredEmails =
+				(fShowStarredCheckBox->Value() == B_CONTROL_ON);
+			fRevert->SetEnabled(true);
+			break;
+		case P_SHOW_ATTACHMENTS:
+			*fNewShowWithAttachments =
+				(fShowAttachmentsCheckBox->Value() == B_CONTROL_ON);
+			fRevert->SetEnabled(true);
+			break;
+		case P_SHOW_SPAM:
+			*fNewShowSpamView =
+				(fShowSpamCheckBox->Value() == B_CONTROL_ON);
+			fRevert->SetEnabled(true);
+			break;
 
 		case P_BLOCK_ADD:
 		{

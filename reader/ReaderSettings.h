@@ -74,6 +74,12 @@ public:
 			bool				ShowSpamGUI() const { return fShowSpamGUI; }
 			bool				UseSystemFontSize();
 			void				SetUseSystemFontSize(bool use);
+
+			// Optional sidebar view visibility
+			bool				ShowAllEmails() const { return fShowAllEmails; }
+			bool				ShowStarredEmails() const { return fShowStarredEmails; }
+			bool				ShowWithAttachments() const { return fShowWithAttachments; }
+			bool				ShowSpamView() const { return fShowSpamView; }
 			void				SetDefaultAccount(int32 account);
 			int32				DefaultAccount();
 			int32				UseAccountFrom();
@@ -132,6 +138,10 @@ private:
 			bool				fShowTimeRange;
 			bool				fShowSpamGUI;
 			bool				fUseSystemFontSize;
+			bool				fShowAllEmails;
+			bool				fShowStarredEmails;
+			bool				fShowWithAttachments;
+			bool				fShowSpamView;
 			int32				fDefaultAccount;
 			int32				fUseAccountFrom;
 			uint32				fMailCharacterSet;

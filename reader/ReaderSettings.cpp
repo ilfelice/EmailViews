@@ -71,6 +71,10 @@ TReaderSettings::TReaderSettings()
 	fShowTimeRange(true),
 	fShowSpamGUI(true),
 	fUseSystemFontSize(true),
+	fShowAllEmails(true),
+	fShowStarredEmails(true),
+	fShowWithAttachments(true),
+	fShowSpamView(true),
 	fDefaultAccount(-1),
 	fUseAccountFrom(ACCOUNT_USE_DEFAULT),
 	fMailCharacterSet(B_MAIL_UTF8_CONVERSION),
@@ -412,7 +416,9 @@ TReaderSettings::ShowPrefsWindow()
 			&fReplyPreamble, &fSignature, &fMailCharacterSet,
 			&fWarnAboutUnencodableCharacters, &fStartWithSpellCheckOn,
 			&fAutoMarkRead, &fShowToolBar, &fShowTimeRange,
-			&fUseSystemFontSize);
+			&fUseSystemFontSize,
+			&fShowAllEmails, &fShowStarredEmails,
+			&fShowWithAttachments, &fShowSpamView);
 		fPrefsWindow->SetFeel(B_MODAL_APP_WINDOW_FEEL);
 		
 		if (fPrefsWindowPos.x <= 0 || fPrefsWindowPos.y <= 0) {
@@ -521,6 +527,10 @@ TReaderSettings::_SaveSettings()
 	settings.AddBool("StartWithSpellCheck", fStartWithSpellCheckOn);
 	settings.AddBool("ShowTimeRange", fShowTimeRange);
 	settings.AddBool("UseSystemFontSize", fUseSystemFontSize);
+	settings.AddBool("ShowAllEmails", fShowAllEmails);
+	settings.AddBool("ShowStarredEmails", fShowStarredEmails);
+	settings.AddBool("ShowWithAttachments", fShowWithAttachments);
+	settings.AddBool("ShowSpamView", fShowSpamView);
 
 	BEntry entry;
 	status = entry.SetTo(path.Path());
@@ -645,6 +655,15 @@ TReaderSettings::_LoadSettings()
 		fUseSystemFontSize = boolValue;
 	else
 		fUseSystemFontSize = true;
+
+	if (settings.FindBool("ShowAllEmails", &boolValue) == B_OK)
+		fShowAllEmails = boolValue;
+	if (settings.FindBool("ShowStarredEmails", &boolValue) == B_OK)
+		fShowStarredEmails = boolValue;
+	if (settings.FindBool("ShowWithAttachments", &boolValue) == B_OK)
+		fShowWithAttachments = boolValue;
+	if (settings.FindBool("ShowSpamView", &boolValue) == B_OK)
+		fShowSpamView = boolValue;
 
 	return B_OK;
 }
