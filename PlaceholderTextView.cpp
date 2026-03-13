@@ -51,14 +51,18 @@ void
 PlaceholderTextView::KeyDown(const char* bytes, int32 numBytes)
 {
 	if (numBytes == 1 && bytes[0] == B_TAB) {
-		// Navigate to the next tab stop within our SearchBarView ancestor
-		// instead of inserting a tab character.
+		// Navigate to the next/previous tab stop within our SearchBarView
+		// ancestor instead of inserting a tab character.
 		// Commit the current field first (same as pressing Enter) so the
 		// search executes before focus moves away.
 		if (TextLength() > 0 && fInvokeMessage != NULL && fTarget.IsValid()) {
 			BMessage message(*fInvokeMessage);
 			fTarget.SendMessage(&message);
 		}
+		// Check for Shift modifier (reverse tab)
+		int32 modifiers = ::modifiers();
+		bool forward = (modifiers & B_SHIFT_KEY) == 0;
+
 		// Walk up to the SearchBarView ancestor and use its tab order
 		BView* ancestor = Parent();
 		while (ancestor != NULL
@@ -66,7 +70,7 @@ PlaceholderTextView::KeyDown(const char* bytes, int32 numBytes)
 			ancestor = ancestor->Parent();
 		SearchBarView* searchBar = dynamic_cast<SearchBarView*>(ancestor);
 		if (searchBar != NULL)
-			searchBar->FocusNextTabStop(this);
+			searchBar->FocusNextTabStop(this, forward);
 		return;
 	}
 	if (numBytes == 1 && bytes[0] == B_ENTER) {

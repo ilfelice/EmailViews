@@ -156,7 +156,7 @@ public:
 	void MakeFocusBodySearch();
 
 	// Tab navigation within the search bar (cycles through all 4 widgets)
-	void FocusNextTabStop(BView* current);
+	void FocusNextTabStop(BView* current, bool forward = true);
 
 private:
 	void _LoadIcons();

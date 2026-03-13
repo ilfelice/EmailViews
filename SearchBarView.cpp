@@ -575,11 +575,16 @@ public:
 		if (bytes[0] != B_TAB)
 			return B_DISPATCH_MESSAGE;
 
+		// Check for Shift modifier (reverse tab)
+		int32 modifiers;
+		message->FindInt32("modifiers", &modifiers);
+		bool forward = (modifiers & B_SHIFT_KEY) == 0;
+
 		// Find which view currently has focus
 		BHandler* handler = *_target;
 		BView* focused = dynamic_cast<BView*>(handler);
 		if (focused != NULL)
-			fSearchBar->FocusNextTabStop(focused);
+			fSearchBar->FocusNextTabStop(focused, forward);
 
 		return B_SKIP_MESSAGE;
 	}
@@ -632,10 +637,10 @@ SearchBarView::MakeFocusBodySearch()
 
 
 void
-SearchBarView::FocusNextTabStop(BView* current)
+SearchBarView::FocusNextTabStop(BView* current, bool forward)
 {
 	// Tab order: fAttributeMenu → fOperatorMenu → fTextControl → fBodySearchControl
-	// Wraps around from last to first.
+	// Wraps around in both directions.
 	//
 	// 'current' may be the widget itself (BMenuField) or a child of it
 	// (PlaceholderTextView inside SearchTextControl). Identify which slot
@@ -667,7 +672,9 @@ SearchBarView::FocusNextTabStop(BView* current)
 	if (currentIndex < 0)
 		return;
 
-	int32 nextIndex = (currentIndex + 1) % kStopCount;
+	int32 nextIndex = forward
+		? (currentIndex + 1) % kStopCount
+		: (currentIndex + kStopCount - 1) % kStopCount;
 	BView* next = tabStops[nextIndex];
 
 	// For SearchTextControl, focus its inner text view
