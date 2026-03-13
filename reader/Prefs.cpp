@@ -204,30 +204,32 @@ TPrefsWindow::TPrefsWindow(BPoint leftTop, BFont* font, int32* level,
 	fBlockFilterField->SetModificationMessage(new BMessage(P_BLOCK_FILTER));
 	fBlockFilterField->TextView()->SetMaxBytes(256);
 
-	fBlockAddressField = new BTextControl("blockAddress", NULL,
-		"", NULL);
-	fBlockAddressField->SetExplicitMinSize(BSize(200, B_SIZE_UNSET));
-
 	fAddBlockButton = new BButton("add", B_TRANSLATE("Add"),
 		new BMessage(P_BLOCK_ADD));
+	fAddBlockButton->SetEnabled(false);
 	fRemoveBlockButton = new BButton("remove", B_TRANSLATE("Remove"),
 		new BMessage(P_BLOCK_REMOVE));
 	fRemoveBlockButton->SetEnabled(false);
 
+	BStringView* blockLabel = new BStringView("blockLabel",
+		B_TRANSLATE("Blocked senders and domains"));
+	BFont boldFont(be_plain_font);
+	boldFont.SetFace(B_BOLD_FACE);
+	blockLabel->SetFont(&boldFont);
+
 	BLayoutBuilder::Group<>(spamView, B_VERTICAL, B_USE_DEFAULT_SPACING)
 		.SetInsets(B_USE_DEFAULT_SPACING)
-		.Add(new BStringView("blockLabel",
-			B_TRANSLATE("Blocked senders and domains:")))
+		.Add(blockLabel)
 		.AddGroup(B_HORIZONTAL, B_USE_HALF_ITEM_SPACING)
-			.Add(new BStringView("filterLabel", B_TRANSLATE("Filter:")))
+			.Add(new BStringView("filterLabel",
+				B_TRANSLATE("Filter / add:")))
 			.Add(fBlockFilterField)
 		.End()
 		.Add(fBlocklistScrollView, 1.0f)
 		.AddGroup(B_HORIZONTAL)
-			.Add(fBlockAddressField)
+			.AddGlue()
 			.Add(fAddBlockButton)
 			.Add(fRemoveBlockButton)
-			.AddGlue()
 		.End();
 
 	_LoadBlocklist();
@@ -454,7 +456,19 @@ TPrefsWindow::DispatchMessage(BMessage* message, BHandler* handler)
 		const char* bytes;
 		if (message->FindString("bytes", &bytes) == B_OK
 			&& bytes[0] == B_ESCAPE) {
-			PostMessage(P_CANCEL);
+			if (_HasChanges()) {
+				BAlert* alert = new BAlert(
+					B_TRANSLATE("Discard changes?"),
+					B_TRANSLATE("Your preferences have been modified. "
+						"Do you want to discard the changes?"),
+					B_TRANSLATE("Cancel"), B_TRANSLATE("Discard"),
+					NULL, B_WIDTH_AS_USUAL, B_WARNING_ALERT);
+				alert->SetShortcut(0, B_ESCAPE);
+				if (alert->Go() == 1)
+					PostMessage(P_CANCEL);
+			} else {
+				PostMessage(P_CANCEL);
+			}
 			return;
 		}
 	}
@@ -558,6 +572,11 @@ TPrefsWindow::MessageReceived(BMessage* msg)
 					fShowWithAttachments ? B_CONTROL_ON : B_CONTROL_OFF);
 				fShowSpamCheckBox->SetValue(
 					fShowSpamView ? B_CONTROL_ON : B_CONTROL_OFF);
+
+				// Revert blocklist
+				fBlocklistData = fOriginalBlocklist;
+				fBlockFilterField->SetText("");
+				_RefreshBlocklistView();
 			}
 
 			be_app->PostMessage(PREFS_CHANGED);
@@ -767,7 +786,7 @@ TPrefsWindow::MessageReceived(BMessage* msg)
 
 		case P_BLOCK_ADD:
 		{
-			BString address(fBlockAddressField->Text());
+			BString address(fBlockFilterField->Text());
 			address.Trim();
 			address.ToLower();
 			if (address.Length() == 0)
@@ -783,7 +802,7 @@ TPrefsWindow::MessageReceived(BMessage* msg)
 			}
 			if (!found) {
 				fBlocklistData.Add(address);
-				fBlockAddressField->SetText("");
+				fBlockFilterField->SetText("");
 				_RefreshBlocklistView();
 			}
 			break;
@@ -827,26 +846,7 @@ TPrefsWindow::MessageReceived(BMessage* msg)
 
 	fFont.GetFamilyAndStyle(&old_family, &old_style);
 	fNewFont->GetFamilyAndStyle(&new_family, &new_style);
-	old_size = (int32)fFont.Size();
-	new_size = fSizeSpinner->Value();
-	bool changed = old_size != new_size
-		|| fWrap != *fNewWrap
-		|| fAttachAttributes != *fNewAttachAttributes
-		|| fColoredQuotes != *fNewColoredQuotes
-		|| fAccount != *fNewAccount
-		|| fReplyTo != *fNewReplyTo
-		|| strcmp(old_family, new_family)
-		|| strcmp(old_style, new_style)
-		|| strcmp(fReplyPreamble->Text(), *fNewPreamble)
-		|| strcmp(fSignature, *fNewSignature)
-		|| fEncoding != *fNewEncoding
-		|| fWarnUnencodable != *fNewWarnUnencodable
-		|| fSpellCheckStartOn != *fNewSpellCheckStartOn
-		|| fAutoMarkRead != *fNewAutoMarkRead
-		|| fButtonBar != *fNewButtonBar
-		|| fShowTimeRange != *fNewShowTimeRange
-		|| fUseSystemFontSize != *fNewUseSystemFontSize;
-	fRevert->SetEnabled(changed);
+	fRevert->SetEnabled(_HasChanges());
 }
 
 
@@ -1202,6 +1202,50 @@ TPrefsWindow::_BuildShowTimeRangeMenu(bool showTimeRange)
 }
 
 
+bool
+TPrefsWindow::_HasChanges() const
+{
+	font_family old_family, new_family;
+	font_style old_style, new_style;
+	fFont.GetFamilyAndStyle(&old_family, &old_style);
+	fNewFont->GetFamilyAndStyle(&new_family, &new_style);
+	int32 old_size = (int32)fFont.Size();
+	int32 new_size = fSizeSpinner->Value();
+
+	return old_size != new_size
+		|| fWrap != *fNewWrap
+		|| fAttachAttributes != *fNewAttachAttributes
+		|| fColoredQuotes != *fNewColoredQuotes
+		|| fAccount != *fNewAccount
+		|| fReplyTo != *fNewReplyTo
+		|| strcmp(old_family, new_family)
+		|| strcmp(old_style, new_style)
+		|| strcmp(fReplyPreamble->Text(), *fNewPreamble)
+		|| strcmp(fSignature, *fNewSignature)
+		|| fEncoding != *fNewEncoding
+		|| fWarnUnencodable != *fNewWarnUnencodable
+		|| fSpellCheckStartOn != *fNewSpellCheckStartOn
+		|| fAutoMarkRead != *fNewAutoMarkRead
+		|| fButtonBar != *fNewButtonBar
+		|| fShowTimeRange != *fNewShowTimeRange
+		|| fUseSystemFontSize != *fNewUseSystemFontSize
+		|| _BlocklistChanged();
+}
+
+
+bool
+TPrefsWindow::_BlocklistChanged() const
+{
+	if (fBlocklistData.CountStrings() != fOriginalBlocklist.CountStrings())
+		return true;
+	for (int32 i = 0; i < fBlocklistData.CountStrings(); i++) {
+		if (fBlocklistData.StringAt(i) != fOriginalBlocklist.StringAt(i))
+			return true;
+	}
+	return false;
+}
+
+
 void
 TPrefsWindow::_RefreshBlocklistView()
 {
@@ -1212,23 +1256,31 @@ TPrefsWindow::_RefreshBlocklistView()
 	// Get filter text
 	BString filter(fBlockFilterField->Text());
 	filter.Trim();
-	filter.ToLower();
+	BString filterLower(filter);
+	filterLower.ToLower();
 
 	// Repopulate with matching entries from backing data
+	bool exactMatch = false;
 	for (int32 i = 0; i < fBlocklistData.CountStrings(); i++) {
 		BString entry = fBlocklistData.StringAt(i);
-		if (filter.Length() == 0) {
+		if (filterLower.Length() == 0) {
 			fBlocklistView->AddItem(new BStringItem(entry.String()));
 		} else {
 			BString lower(entry);
 			lower.ToLower();
-			if (lower.FindFirst(filter) >= 0)
+			if (lower.FindFirst(filterLower) >= 0)
 				fBlocklistView->AddItem(new BStringItem(entry.String()));
+			if (lower == filterLower)
+				exactMatch = true;
 		}
 	}
 
 	fRemoveBlockButton->SetEnabled(
 		fBlocklistView->CurrentSelection() >= 0);
+
+	// Enable Add when there's text that isn't already in the list
+	fAddBlockButton->SetEnabled(
+		filterLower.Length() > 0 && !exactMatch);
 }
 
 

@@ -114,6 +114,8 @@ private:
 			void				_SaveBlocklist();
 			void				_UnclassifyRemovedSenders();
 			void				_RefreshBlocklistView();
+			bool				_BlocklistChanged() const;
+			bool				_HasChanges() const;
 
 			BStringList			fOriginalBlocklist;
 			BStringList			fBlocklistData;
@@ -188,7 +190,6 @@ private:
 			BListView*			fBlocklistView;
 			BScrollView*		fBlocklistScrollView;
 			BTextControl*		fBlockFilterField;
-			BTextControl*		fBlockAddressField;
 			BButton*			fAddBlockButton;
 			BButton*			fRemoveBlockButton;
 };
