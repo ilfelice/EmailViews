@@ -8,12 +8,12 @@
 
 #include <Application.h>
 #include <Bitmap.h>
-#include <Button.h>
 #include <Catalog.h>
 #include <ControlLook.h>
 #include <IconUtils.h>
 #include <LayoutBuilder.h>
 #include <MenuItem.h>
+#include <MessageFilter.h>
 #include <MessageRunner.h>
 #include <PopUpMenu.h>
 #include <Resources.h>
@@ -25,16 +25,19 @@
 
 
 // ============================================================================
-// SearchTextControl - Wrapper that draws a focus-aware border around a
-// PlaceholderTextView. This mirrors BTextControl's two-view architecture
-// (parent draws border, child is the text view) so we get native-looking
-// focus rings while using our custom PlaceholderTextView.
+// SearchTextControl - Wrapper that draws a unified focus-aware border around
+// a PlaceholderTextView and an integrated clear-button icon. The border and
+// focus ring wrap both elements so they look like a single widget.
 // ============================================================================
 
 SearchTextControl::SearchTextControl(const char* name, BMessage* invokeMessage)
 	:
 	BView(name, B_WILL_DRAW | B_FRAME_EVENTS | B_NAVIGABLE_JUMP),
-	fTextView(NULL)
+	fTextView(NULL),
+	fClearIcon(NULL),
+	fClearMessage(NULL),
+	fClearEnabled(false),
+	fClearHovered(false)
 {
 	SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
 
@@ -46,11 +49,11 @@ SearchTextControl::SearchTextControl(const char* name, BMessage* invokeMessage)
 	fTextView->SetViewUIColor(B_DOCUMENT_BACKGROUND_COLOR);
 	fTextView->SetLowUIColor(B_DOCUMENT_BACKGROUND_COLOR);
 	fTextView->SetHighUIColor(B_DOCUMENT_TEXT_COLOR);
-	
+
 	// Set the text color for typed text
 	rgb_color textColor = ui_color(B_DOCUMENT_TEXT_COLOR);
 	fTextView->SetFontAndColor(be_plain_font, B_FONT_ALL, &textColor);
-	
+
 	fTextView->SetInvokeMessage(invokeMessage);
 	AddChild(fTextView);
 }
@@ -58,6 +61,7 @@ SearchTextControl::SearchTextControl(const char* name, BMessage* invokeMessage)
 
 SearchTextControl::~SearchTextControl()
 {
+	delete fClearMessage;
 }
 
 
@@ -72,9 +76,8 @@ SearchTextControl::AllAttached()
 void
 SearchTextControl::Draw(BRect updateRect)
 {
-	// Match BTextControl::Draw() exactly
-	BRect rect = fTextView->Frame();
-	rect.InsetBy(-kFrameMargin, -kFrameMargin);
+	// Draw a single border around the full bounds (text view + clear button)
+	BRect rect = Bounds();
 
 	rgb_color base = ViewColor();
 
@@ -83,6 +86,67 @@ SearchTextControl::Draw(BRect updateRect)
 		flags |= BControlLook::B_FOCUSED;
 
 	be_control_look->DrawTextControlBorder(this, rect, updateRect, base, flags);
+
+	// 'rect' has been shrunk to the interior by DrawTextControlBorder.
+	// Fill the clear button zone (right of the text view) with the document
+	// background so it looks like a seamless part of the text field.
+	rgb_color docBg = ui_color(B_DOCUMENT_BACKGROUND_COLOR);
+	BRect fillRect(fTextView->Frame().right + 1, rect.top,
+		rect.right, rect.bottom);
+	SetHighColor(docBg);
+	FillRect(fillRect);
+
+	// Draw the clear button content — centered in the clear zone.
+	// When fClearIcon is set (e.g. stop icon during body search), draw
+	// the bitmap. Otherwise draw a × character that adapts to the theme.
+	BRect clearZone = _ClearButtonZone();
+	if (!clearZone.IsValid())
+		return;
+
+	float centerX = clearZone.left + clearZone.Width() / 2.0f;
+	float centerY = clearZone.top + clearZone.Height() / 2.0f;
+
+	if (fClearIcon != NULL) {
+		// Bitmap mode (stop icon) — center the icon in the clear zone
+		float iconSize = floorf(clearZone.Height() * 0.7f);
+		BRect destRect(centerX - iconSize / 2.0f,
+			centerY - iconSize / 2.0f,
+			centerX + iconSize / 2.0f,
+			centerY + iconSize / 2.0f);
+		SetDrawingMode(B_OP_ALPHA);
+		if (!fClearEnabled) {
+			SetBlendingMode(B_CONSTANT_ALPHA, B_ALPHA_OVERLAY);
+			SetHighColor(0, 0, 0, 40);
+		} else {
+			SetBlendingMode(B_PIXEL_ALPHA, B_ALPHA_OVERLAY);
+		}
+		DrawBitmap(fClearIcon, fClearIcon->Bounds(), destRect);
+		SetDrawingMode(B_OP_COPY);
+	} else {
+		// Text mode — draw × (U+00D7) using theme-aware text color
+		rgb_color textColor = ui_color(B_DOCUMENT_TEXT_COLOR);
+		if (!fClearEnabled) {
+			// Blend text color toward background for disabled look
+			textColor = tint_color(docBg, B_DISABLED_LABEL_TINT);
+		}
+
+		SetHighColor(textColor);
+		BFont font(be_plain_font);
+		font.SetSize(font.Size() * 1.2f);
+		SetFont(&font);
+
+		static const char* kClearGlyph = "\xC3\x97";  // U+00D7 ×
+		float glyphWidth = font.StringWidth(kClearGlyph);
+		font_height fh;
+		font.GetHeight(&fh);
+		float glyphX = centerX - glyphWidth / 2.0f;
+		float glyphY = centerY + (fh.ascent - fh.descent) / 2.0f;
+
+		DrawString(kClearGlyph, BPoint(glyphX, glyphY));
+
+		// Restore the original font
+		SetFont(be_plain_font);
+	}
 }
 
 
@@ -102,13 +166,58 @@ SearchTextControl::FrameResized(float width, float height)
 }
 
 
+void
+SearchTextControl::MouseDown(BPoint where)
+{
+	BRect clearZone = _ClearButtonZone();
+	if (fClearEnabled && clearZone.IsValid() && clearZone.Contains(where)) {
+		if (fClearMessage != NULL && fClearTarget.IsValid())
+			fClearTarget.SendMessage(fClearMessage);
+		return;
+	}
+	// Click in the text area — focus the text view
+	fTextView->MakeFocus(true);
+}
+
+
+void
+SearchTextControl::MouseMoved(BPoint where, uint32 transit,
+	const BMessage* dragMessage)
+{
+	BRect clearZone = _ClearButtonZone();
+	bool hovered = fClearEnabled && clearZone.IsValid()
+		&& clearZone.Contains(where)
+		&& (transit == B_INSIDE_VIEW || transit == B_ENTERED_VIEW);
+
+	if (hovered != fClearHovered) {
+		fClearHovered = hovered;
+		Invalidate(clearZone);
+	}
+
+	if (transit == B_EXITED_VIEW && fClearHovered) {
+		fClearHovered = false;
+		Invalidate(clearZone);
+	}
+
+	// Show tooltip over clear button area
+	if (hovered && fClearToolTip.Length() > 0)
+		SetToolTip(fClearToolTip.String());
+	else
+		SetToolTip((const char*)NULL);
+
+	BView::MouseMoved(where, transit, dragMessage);
+}
+
+
 BSize
 SearchTextControl::MinSize()
 {
 	font_height fh;
 	fTextView->GetFontHeight(&fh);
 	float height = ceilf(fh.ascent + fh.descent + fh.leading) + 2 * kFrameMargin + 4;
-	return BSize(50, height);
+	// Width: minimum text area + clear button zone
+	float clearWidth = height;  // Square clear button area
+	return BSize(50 + clearWidth, height);
 }
 
 
@@ -122,7 +231,9 @@ SearchTextControl::MaxSize()
 BSize
 SearchTextControl::PreferredSize()
 {
-	return BSize(200, MinSize().height);
+	float height = MinSize().height;
+	float clearWidth = height;
+	return BSize(200 + clearWidth, height);
 }
 
 
@@ -167,23 +278,73 @@ SearchTextControl::SetTarget(BHandler* target)
 	if (fTextView != NULL) {
 		BMessenger messenger(target);
 		fTextView->SetTarget(messenger);
+		fClearTarget = messenger;
 	}
+}
+
+
+void
+SearchTextControl::SetClearMessage(BMessage* message)
+{
+	delete fClearMessage;
+	fClearMessage = message;
+}
+
+
+void
+SearchTextControl::SetClearIcon(BBitmap* icon)
+{
+	fClearIcon = icon;
+	Invalidate();
+}
+
+
+void
+SearchTextControl::SetClearEnabled(bool enabled)
+{
+	if (fClearEnabled != enabled) {
+		fClearEnabled = enabled;
+		Invalidate(_ClearButtonZone());
+	}
+}
+
+
+void
+SearchTextControl::SetClearToolTip(const char* tip)
+{
+	fClearToolTip = tip ? tip : "";
 }
 
 
 void
 SearchTextControl::_LayoutTextView()
 {
-	// Match BTextControl::_LayoutTextView()
 	BRect frame = Bounds();
 	frame.InsetBy(kFrameMargin, kFrameMargin);
+
+	// Reserve space on the right for the clear button
+	float clearWidth = frame.Height();  // Square
+	float textRight = frame.right - clearWidth;
+
 	fTextView->MoveTo(frame.left, frame.top);
-	fTextView->ResizeTo(frame.Width(), frame.Height());
+	fTextView->ResizeTo(textRight - frame.left, frame.Height());
 
 	// Set text rect within the text view
 	BRect textRect = fTextView->Bounds();
 	textRect.InsetBy(2, 1);
 	fTextView->SetTextRect(textRect);
+}
+
+
+BRect
+SearchTextControl::_ClearButtonZone() const
+{
+	BRect frame = Bounds();
+	frame.InsetBy(kFrameMargin, kFrameMargin);
+
+	float clearWidth = frame.Height();  // Square zone
+	return BRect(frame.right - clearWidth, frame.top,
+		frame.right, frame.bottom);
 }
 
 
@@ -199,10 +360,7 @@ SearchBarView::SearchBarView(BMessage* searchMessage, BMessage* clearMessage,
 	fAttributeMenu(NULL),
 	fOperatorMenu(NULL),
 	fTextControl(NULL),
-	fClearButton(NULL),
-	fClearMessage(clearMessage),
 	fAddQueryMessage(addQueryMessage),
-	fClearIcon(NULL),
 	fStopIcon(NULL),
 	fAddQueryIcon(NULL),
 	fSearchDebounceRunner(NULL),
@@ -215,14 +373,15 @@ SearchBarView::SearchBarView(BMessage* searchMessage, BMessage* clearMessage,
 	fSearchAttribute(SEARCH_SUBJECT),
 	fMatchesMode(false),
 	fBodySearchControl(NULL),
-	fBodyClearButton(NULL),
-	fBodySearchMessage(bodySearchMessage),
-	fBodyClearMessage(bodyClearMessage),
-	fBodyClearIcon(NULL),
 	fBodyStopIcon(NULL),
 	fBodySearchActive(false)
 {
 	SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
+
+	// clearMessage and bodyClearMessage are no longer used — clear routing
+	// is handled internally via MSG_CLEAR_BUTTON_CLICKED/MSG_BODY_CLEAR_CLICKED
+	delete clearMessage;
+	delete bodyClearMessage;
 
 	// Derive button size from font metrics so the + icon scales
 	// with the system font size, matching the search bar's natural height.
@@ -289,35 +448,21 @@ SearchBarView::SearchBarView(BMessage* searchMessage, BMessage* clearMessage,
 		fOperatorMenu->SetExplicitMaxSize(BSize(operatorMenuWidth, B_SIZE_UNSET));
 	}
 
-	// Create filter text control with placeholder support
+	// Create filter text control with placeholder support and integrated clear
 	fTextControl = new SearchTextControl("filter", searchMessage);
 	fTextControl->SetModificationMessage(new BMessage('_mod'));
 	fTextControl->SetPlaceholder(B_TRANSLATE("Type text and press Enter" B_UTF8_ELLIPSIS));
+	fTextControl->SetClearMessage(new BMessage(MSG_CLEAR_BUTTON_CLICKED));
+	fTextControl->SetClearToolTip(B_TRANSLATE("Clear filter"));
 
-	// Create filter clear button with icon, flush against text control
-	fClearButton = new BButton("clear", "", new BMessage(MSG_CLEAR_BUTTON_CLICKED));
-	fClearButton->SetToolTip(B_TRANSLATE("Clear filter"));
-	fClearButton->SetEnabled(false);  // Disabled until there's text
-	
-	// Size the button to match text control height
-	font_height fh;
-	fTextControl->GetFontHeight(&fh);
-	float textCtrlHeight = ceilf(fh.ascent + fh.descent + fh.leading) + 8;
-	fClearButton->SetExplicitSize(BSize(textCtrlHeight, textCtrlHeight));
-
-	// Create body search text control
+	// Create body search text control with integrated clear
 	fBodySearchControl = new SearchTextControl("bodysearch",
 		bodySearchMessage);
 	fBodySearchControl->SetModificationMessage(new BMessage('_bmd'));
 	fBodySearchControl->SetPlaceholder(
 		B_TRANSLATE("Type text and press Enter" B_UTF8_ELLIPSIS));
-
-	// Create body search clear button
-	fBodyClearButton = new BButton("bodyclear", "",
-		new BMessage(MSG_BODY_CLEAR_CLICKED));
-	fBodyClearButton->SetToolTip(B_TRANSLATE("Clear search"));
-	fBodyClearButton->SetEnabled(false);
-	fBodyClearButton->SetExplicitSize(BSize(textCtrlHeight, textCtrlHeight));
+	fBodySearchControl->SetClearMessage(new BMessage(MSG_BODY_CLEAR_CLICKED));
+	fBodySearchControl->SetClearToolTip(B_TRANSLATE("Clear search"));
 
 	// Create "Search:" label for the body search section
 	BStringView* searchLabel = new BStringView("searchLabel",
@@ -332,10 +477,7 @@ SearchBarView::SearchBarView(BMessage* searchMessage, BMessage* clearMessage,
 		.AddStrut(4)
 		.Add(fOperatorMenu)
 		.AddStrut(4)
-		.AddGroup(B_HORIZONTAL, -2)  // Negative spacing for flush button
-			.Add(fTextControl)
-			.Add(fClearButton)
-		.End()
+		.Add(fTextControl)
 		.AddStrut(addButtonWidth)
 		// Separator
 		.Add(new BSeparatorView(B_VERTICAL, B_PLAIN_BORDER))
@@ -343,27 +485,22 @@ SearchBarView::SearchBarView(BMessage* searchMessage, BMessage* clearMessage,
 		.AddStrut(4)
 		.Add(searchLabel)
 		.AddStrut(4)
-		.AddGroup(B_HORIZONTAL, -2)
-			.Add(fBodySearchControl, 1.0f)
-			.Add(fBodyClearButton)
-		.End();
+		.Add(fBodySearchControl, 1.0f);
 }
 
 
 SearchBarView::~SearchBarView()
 {
 	delete fSearchDebounceRunner;
-	delete fClearIcon;
 	delete fStopIcon;
 	delete fAddQueryIcon;
-	delete fBodyClearIcon;
 	delete fBodyStopIcon;
 	// Note: searchMessage and bodySearchMessage were passed to their
 	// respective SearchTextControl/PlaceholderTextView which take ownership.
+	// fClearMessage and fBodyClearMessage were passed to SearchTextControl
+	// via SetClearMessage() which also takes ownership.
 	// Do NOT delete them here.
-	delete fClearMessage;
 	delete fAddQueryMessage;
-	delete fBodyClearMessage;
 }
 
 
@@ -383,29 +520,13 @@ SearchBarView::_LoadIcons()
 
 	size_t size;
 
-	// Load clear button icon and set it on the filter clear button
+	// Load stop/abort icon (for body search abort — swapped in during search)
 	const void* data = resources->LoadResource(B_VECTOR_ICON_TYPE,
-		"ClearButton", &size);
+		"StopSearch", &size);
 	if (data != NULL) {
-		int clearIconSize = 16;
-		fClearIcon = new BBitmap(BRect(0, 0, clearIconSize - 1,
-			clearIconSize - 1), B_RGBA32);
-		if (BIconUtils::GetVectorIcon((const uint8*)data, size,
-			fClearIcon) == B_OK) {
-			if (fClearButton != NULL)
-				fClearButton->SetIcon(fClearIcon);
-		} else {
-			delete fClearIcon;
-			fClearIcon = NULL;
-		}
-	}
-
-	// Load stop/abort icon (for body search abort)
-	data = resources->LoadResource(B_VECTOR_ICON_TYPE, "StopSearch", &size);
-	if (data != NULL) {
-		int clearIconSize = 16;
-		fStopIcon = new BBitmap(BRect(0, 0, clearIconSize - 1,
-			clearIconSize - 1), B_RGBA32);
+		int iconSize = 16;
+		fStopIcon = new BBitmap(BRect(0, 0, iconSize - 1,
+			iconSize - 1), B_RGBA32);
 		if (BIconUtils::GetVectorIcon((const uint8*)data, size,
 			fStopIcon) != B_OK) {
 			delete fStopIcon;
@@ -427,17 +548,45 @@ SearchBarView::_LoadIcons()
 		}
 	}
 
-	// Clone clear icon for body search clear button
-	if (fClearIcon != NULL) {
-		fBodyClearIcon = new BBitmap(fClearIcon);
-		if (fBodyClearButton != NULL)
-			fBodyClearButton->SetIcon(fBodyClearIcon);
-	}
-
 	// Clone stop icon for body search stop
 	if (fStopIcon != NULL)
 		fBodyStopIcon = new BBitmap(fStopIcon);
 }
+
+
+// Message filter that intercepts Tab on BMenuField widgets and routes
+// it through SearchBarView's tab order instead of the window-wide
+// B_NAVIGABLE chain.
+class SearchBarTabFilter : public BMessageFilter {
+public:
+	SearchBarTabFilter(SearchBarView* searchBar)
+		:
+		BMessageFilter(B_KEY_DOWN),
+		fSearchBar(searchBar)
+	{
+	}
+
+	virtual filter_result Filter(BMessage* message, BHandler** _target)
+	{
+		const char* bytes;
+		if (message->FindString("bytes", &bytes) != B_OK)
+			return B_DISPATCH_MESSAGE;
+
+		if (bytes[0] != B_TAB)
+			return B_DISPATCH_MESSAGE;
+
+		// Find which view currently has focus
+		BHandler* handler = *_target;
+		BView* focused = dynamic_cast<BView*>(handler);
+		if (focused != NULL)
+			fSearchBar->FocusNextTabStop(focused);
+
+		return B_SKIP_MESSAGE;
+	}
+
+private:
+	SearchBarView* fSearchBar;
+};
 
 
 void
@@ -448,9 +597,11 @@ SearchBarView::AttachedToWindow()
 	fTextControl->SetTarget(this);
 	fAttributeMenu->Menu()->SetTargetForItems(this);
 	fOperatorMenu->Menu()->SetTargetForItems(this);
-	fClearButton->SetTarget(this);
 	fBodySearchControl->SetTarget(this);
-	fBodyClearButton->SetTarget(this);
+
+	// Install tab filters on menu fields so Tab cycles within the search bar
+	fAttributeMenu->AddFilter(new SearchBarTabFilter(this));
+	fOperatorMenu->AddFilter(new SearchBarTabFilter(this));
 
 	_LoadIcons();
 }
@@ -477,6 +628,57 @@ SearchBarView::MakeFocusBodySearch()
 {
 	if (fBodySearchControl)
 		fBodySearchControl->MakeFocus(true);
+}
+
+
+void
+SearchBarView::FocusNextTabStop(BView* current)
+{
+	// Tab order: fAttributeMenu → fOperatorMenu → fTextControl → fBodySearchControl
+	// Wraps around from last to first.
+	//
+	// 'current' may be the widget itself (BMenuField) or a child of it
+	// (PlaceholderTextView inside SearchTextControl). Identify which slot
+	// it belongs to by walking up its parent chain.
+
+	BView* tabStops[] = {
+		fAttributeMenu,
+		fOperatorMenu,
+		fTextControl,
+		fBodySearchControl
+	};
+	const int32 kStopCount = 4;
+
+	int32 currentIndex = -1;
+	for (int32 i = 0; i < kStopCount; i++) {
+		// Check if 'current' is the stop itself or a descendant of it
+		BView* v = current;
+		while (v != NULL) {
+			if (v == tabStops[i]) {
+				currentIndex = i;
+				break;
+			}
+			v = v->Parent();
+		}
+		if (currentIndex >= 0)
+			break;
+	}
+
+	if (currentIndex < 0)
+		return;
+
+	int32 nextIndex = (currentIndex + 1) % kStopCount;
+	BView* next = tabStops[nextIndex];
+
+	// For SearchTextControl, focus its inner text view
+	SearchTextControl* stc = dynamic_cast<SearchTextControl*>(next);
+	if (stc != NULL) {
+		stc->MakeFocus(true);
+		return;
+	}
+
+	// For BMenuField, focus it directly
+	next->MakeFocus(true);
 }
 
 
@@ -563,15 +765,15 @@ SearchBarView::MessageReceived(BMessage* message)
 		}
 
 		case MSG_CLEAR_BUTTON_CLICKED:
-			if (fClearMessage && Window())
-				Window()->PostMessage(fClearMessage);
+			if (Window())
+				Window()->PostMessage(MSG_SEARCH_CLEAR);
 			if (fTextControl)
 				fTextControl->MakeFocus(true);
 			break;
 
 		case MSG_BODY_CLEAR_CLICKED:
-			if (fBodyClearMessage && Window())
-				Window()->PostMessage(fBodyClearMessage);
+			if (Window())
+				Window()->PostMessage(MSG_BODY_SEARCH_CLEAR);
 			if (fBodySearchControl)
 				fBodySearchControl->MakeFocus(true);
 			break;
@@ -585,12 +787,12 @@ SearchBarView::MessageReceived(BMessage* message)
 BRect
 SearchBarView::_AddQueryButtonRect() const
 {
-	if (fClearButton == NULL)
+	if (fTextControl == NULL)
 		return BRect();
 
-	BRect clearFrame = fClearButton->Frame();
+	BRect textFrame = fTextControl->Frame();
 	float buttonSize = fButtonSize;
-	float left = clearFrame.right + 6;
+	float left = textFrame.right + 6;
 	BRect bounds = Bounds();
 	float centerY = bounds.top + bounds.Height() / 2;
 
@@ -701,19 +903,18 @@ SearchBarView::SetLoading(bool loading)
 void
 SearchBarView::SetBodySearchRunning(bool running)
 {
-	if (fBodyClearButton == NULL)
+	if (fBodySearchControl == NULL)
 		return;
 
 	if (running) {
 		fBodySearchActive = true;
 		if (fBodyStopIcon != NULL)
-			fBodyClearButton->SetIcon(fBodyStopIcon);
-		fBodyClearButton->SetToolTip(B_TRANSLATE("Abort search"));
-		fBodyClearButton->SetEnabled(true);
+			fBodySearchControl->SetClearIcon(fBodyStopIcon);
+		fBodySearchControl->SetClearToolTip(B_TRANSLATE("Abort search"));
+		fBodySearchControl->SetClearEnabled(true);
 	} else {
-		if (fBodyClearIcon != NULL)
-			fBodyClearButton->SetIcon(fBodyClearIcon);
-		fBodyClearButton->SetToolTip(B_TRANSLATE("Clear search"));
+		fBodySearchControl->SetClearIcon(NULL);  // Back to × character
+		fBodySearchControl->SetClearToolTip(B_TRANSLATE("Clear search"));
 		_UpdateBodyClearButtonState();
 	}
 }
@@ -838,14 +1039,14 @@ SearchBarView::_UpdateOperatorLabel()
 void
 SearchBarView::_UpdateClearButtonState()
 {
-	if (fClearButton != NULL)
-		fClearButton->SetEnabled(HasText() || fSearchExecuted);
+	if (fTextControl != NULL)
+		fTextControl->SetClearEnabled(HasText() || fSearchExecuted);
 }
 
 
 void
 SearchBarView::_UpdateBodyClearButtonState()
 {
-	if (fBodyClearButton != NULL)
-		fBodyClearButton->SetEnabled(HasBodySearchText() || fBodySearchActive);
+	if (fBodySearchControl != NULL)
+		fBodySearchControl->SetClearEnabled(HasBodySearchText() || fBodySearchActive);
 }

@@ -19,13 +19,13 @@
 #define SEARCH_BAR_VIEW_H
 
 #include <MenuField.h>
+#include <Messenger.h>
 #include <StringView.h>
 #include <View.h>
 
 #include "PlaceholderTextView.h"
 
 class BBitmap;
-class BButton;
 class BMessageRunner;
 
 // Search attribute options (filter field only — no body/fulltext)
@@ -48,8 +48,13 @@ const uint32 MSG_BODY_SEARCH_INVOKED = 'bsiv';
 const uint32 MSG_BODY_CLEAR_CLICKED = 'bscl';
 
 
-// Custom text control wrapper that draws border around PlaceholderTextView
-// (mimics BTextControl's architecture)
+// Custom text control wrapper that draws a unified focus-aware border around
+// a PlaceholderTextView and an integrated clear button icon. This mirrors
+// BTextControl's two-view architecture (parent draws border, child is the
+// text view) so we get native-looking focus rings while using our custom
+// PlaceholderTextView. The clear button is drawn as a clickable icon inside
+// the border — not a separate BButton — so the focus ring wraps the entire
+// widget.
 class SearchTextControl : public BView {
 public:
 	SearchTextControl(const char* name, BMessage* invokeMessage);
@@ -59,6 +64,9 @@ public:
 	virtual void Draw(BRect updateRect);
 	virtual void MakeFocus(bool focus = true);
 	virtual void FrameResized(float width, float height);
+	virtual void MouseDown(BPoint where);
+	virtual void MouseMoved(BPoint where, uint32 transit,
+					const BMessage* dragMessage);
 	virtual BSize MinSize();
 	virtual BSize MaxSize();
 	virtual BSize PreferredSize();
@@ -71,10 +79,24 @@ public:
 	void SetPlaceholder(const char* placeholder);
 	void SetTarget(BHandler* target);
 
+	// Clear button
+	void SetClearMessage(BMessage* message);
+	void SetClearIcon(BBitmap* icon);
+	void SetClearEnabled(bool enabled);
+	bool IsClearEnabled() const { return fClearEnabled; }
+	void SetClearToolTip(const char* tip);
+
 private:
 	void _LayoutTextView();
+	BRect _ClearButtonZone() const;
 
 	PlaceholderTextView* fTextView;
+	BBitmap* fClearIcon;		// Not owned — set by SearchBarView
+	BMessage* fClearMessage;	// Owned
+	BMessenger fClearTarget;	// Target for clear messages (set via SetTarget)
+	bool fClearEnabled;
+	bool fClearHovered;
+	BString fClearToolTip;
 
 	static const int32 kFrameMargin = 2;
 };
@@ -133,6 +155,9 @@ public:
 	// Focus the body search field
 	void MakeFocusBodySearch();
 
+	// Tab navigation within the search bar (cycles through all 4 widgets)
+	void FocusNextTabStop(BView* current);
+
 private:
 	void _LoadIcons();
 	BRect _AddQueryButtonRect() const;
@@ -143,10 +168,7 @@ private:
 	BMenuField* fAttributeMenu;
 	BMenuField* fOperatorMenu;
 	SearchTextControl* fTextControl;
-	BButton* fClearButton;
-	BMessage* fClearMessage;
 	BMessage* fAddQueryMessage;
-	BBitmap* fClearIcon;
 	BBitmap* fStopIcon;
 	BBitmap* fAddQueryIcon;
 	BMessageRunner* fSearchDebounceRunner;
@@ -161,10 +183,6 @@ private:
 
 	// Body search field (right side)
 	SearchTextControl* fBodySearchControl;
-	BButton* fBodyClearButton;
-	BMessage* fBodySearchMessage;
-	BMessage* fBodyClearMessage;
-	BBitmap* fBodyClearIcon;
 	BBitmap* fBodyStopIcon;
 	bool fBodySearchActive;  // True while results are filtered by body search
 };
