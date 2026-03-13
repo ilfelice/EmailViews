@@ -1,4 +1,4 @@
-1	Turkish	application/x-vnd.EmailViews	2432148189
+1	Turkish	application/x-vnd.EmailViews	2343533018
  Read 	Toolbar	As short as possible	Oku
 Attach	Toolbar	As short as possible	İliştir
 Check email	Toolbar	As short as possible	E-postayı denetle
@@ -112,7 +112,9 @@ Your main text contains %ld unencodable characters. Perhaps a different characte
 [The draft has no body text to display]	EmailViewsWindow		[Taslakta görüntülenecek gövde metni yok]
 %d emails selected.	EmailViewsWindow		%d ileti seçildi.
 %s emails	EmailViewsWindow		%s ileti
+%s emails found	EmailViewsWindow		%s emails found
 1 email	EmailViewsWindow		1 ileti
+1 email found	EmailViewsWindow		1 email found
 A query named '%name%' already exists.	EmailViewsWindow		“%name%” adlı bir sorgu halihazırda var.
 A query with the same search criteria already exists: '%name%'	EmailViewsWindow		Aynı arama kriteriyle bir sorgu halihazırda var: “%name%”
 About EmailViews…	EmailViewsWindow		EmailViews hakkında…
@@ -122,6 +124,7 @@ Add 'From' query	EmailViewsWindow		“Kimden” sorgusu ekle
 Add 'To' query	EmailViewsWindow		“Kime” sorgusu ekle
 All emails	EmailViewsWindow		Tüm e-postalar
 Are you sure you want to move %count% emails to Trash?	EmailViewsWindow		%count% iletiyi çöpe taşımak istediğinizden emin misiniz?
+Backup emails to ZIP…	EmailViewsWindow		Backup emails to ZIP…
 Backup failed	EmailViewsWindow		Yedekleme başarısız
 Cancel	EmailViewsWindow		Vazgeç
 Clear filter	EmailViewsWindow		Clear filter
@@ -147,6 +150,9 @@ Filter by 'Sender'	EmailViewsWindow		Filter by 'Sender'
 Filter by 'Subject'	EmailViewsWindow		Filter by 'Subject'
 Forward	EmailViewsWindow		İlet
 HTML message	EmailViewsWindow		HTML iletisi
+Inbox	EmailViewsWindow		Inbox
+Inbox (%ld)	EmailViewsWindow		Inbox (%ld)
+Loading…	EmailViewsWindow		Loading…
 Mark as read	EmailViewsWindow		Okundu olarak imle
 Mark as spam	EmailViewsWindow		İstenmeyen olarak imle
 Mark as unread	EmailViewsWindow		Okunmamış olarak imle
@@ -172,6 +178,7 @@ Reply	EmailViewsWindow		Yanıtla
 Reply all	EmailViewsWindow		Tümünü yanıtla
 Restore email	EmailViewsWindow		İletiyi geri yükle
 Save backup as	EmailViewsWindow		Yedeği farklı kaydet
+Searching…	EmailViewsWindow		Searching…
 Select an email to preview its contents.	EmailViewsWindow		İçeriğini önizlemek için bir ileti seçin.
 Select folder	EmailViewsWindow		Klasör seç
 Sent emails	EmailViewsWindow		Gönderilmiş iletiler
@@ -201,13 +208,14 @@ You are trying to restore 1 message that belongs to an account that is not confi
 <no account found>	Preferences		<bulunan hesap yok>
 Account from mail	Preferences		Postadan hesap
 Add	Preferences		Ekle
+All emails	Preferences		All emails
 Attach attributes:	Preferences		İliştirme öznitelikleri:
+Auto mark email as read:	Preferences		Auto mark email as read:
 Auto signature:	Preferences		Otomatik imza:
-Automatically mark mail as read:	Preferences		İletiyi kendiliğinden okundu olarak imle:
 Beginner	Preferences		Acemi
 Blocked senders and domains:	Preferences		Engelli göndericiler ve etki alanları:
-Button bar:	Preferences		Düğme çubuğu:
 Cancel	Preferences		Vazgeç
+Check the query views you want visible in the sidebar.	Preferences		Check the query views you want visible in the sidebar.
 Colored quotes:	Preferences		Renkli alıntılar:
 Default account:	Preferences		Saptanmış hesap:
 Email preferences	Preferences		E-posta tercihleri
@@ -222,6 +230,7 @@ None	Preferences		Yok
 Off	Preferences		Kapalı
 OK	Preferences		Tamam
 On	Preferences		Açık
+Optional sidebar views	Preferences		Optional sidebar views
 Outgoing encoding:	Preferences		Giden ileti kodlaması:
 Remove	Preferences		Kaldır
 Reply account:	Preferences		Yanıtlama hesabı:
@@ -230,13 +239,17 @@ Revert	Preferences		Geri al
 Show icons & labels	Preferences		Simgeleri ve etiketleri göster
 Show icons only	Preferences		Yalnızca simgeleri göster
 Size:	Preferences		Boyut:
-Spam filtering	Preferences		İstenmeyen süzme
+Spam	Preferences		Spam
+Spam filter	Preferences		Spam filter
+Starred emails	Preferences		Starred emails
 Text wrapping:	Preferences		Metin kaydırma:
 Time range slider:	Preferences		Zaman erimi sürgüsü:
+Toolbar:	Preferences		Toolbar:
 Use default account	Preferences		Saptanmış hesabı kullan
-Use system font size	Preferences		Sistem yazıtipi puntosunu kullan
+Use system fixed font size	Preferences		Use system fixed font size
 User interface	Preferences		Kullanıcı arayüzü
 Warn unencodable:	Preferences		Kodlanamayanda uyar
+With attachments	Preferences		With attachments
 \\n\\nOn %d %n wrote:\\n	ReaderSettings		\\n\\n%d tarihinde %n şunları yazdı:\\n
 None	ReaderSettings		Yok
 %count% new emails	DeskbarReplicant		%count% yeni ileti
@@ -257,6 +270,21 @@ From:	HeaderView		Kimden:
 Subject:	HeaderView		Konu:
 To:	HeaderView		Kime:
 Unknown	HeaderView		Bilinmiyor
+Abort search	SearchBarView		Abort search
+Account	SearchBarView		Hesap
+Clear filter	SearchBarView		Clear filter
+Clear search	SearchBarView		Clear search
+contains	SearchBarView		içerir
+Create query based on filter criteria	SearchBarView		Create query based on filter criteria
+Filter:	SearchBarView		Süzgeç:
+From	SearchBarView		Kimden
+matches	SearchBarView		eşleşir
+Search:	SearchBarView		Search:
+Select attribute to filter by	SearchBarView		Select attribute to filter by
+Select search operator	SearchBarView		Arama işleci seç
+Subject	SearchBarView		Konu
+To	SearchBarView		Kime
+Type text and press Enter…	SearchBarView		Metin yazın ve Giriş’e basın…
 Account	EmailColumnHeader		Hesap
 Account	EmailColumnHeader	Email list column header	Hesap
 Attachment	EmailColumnHeader		Ek
@@ -271,20 +299,6 @@ Subject	EmailColumnHeader		Konu
 Subject	EmailColumnHeader	Email list column header	Konu
 To	EmailColumnHeader		Kime
 To	EmailColumnHeader	Email list column header	Kime
-Account	SearchBarView		Hesap
-Backup emails to ZIP file	SearchBarView		İletileri ZIP dosyasına yedekle
-Backup in progress…	SearchBarView		Yedek sürüyor…
-Clear search box	SearchBarView		Arama kutusunu temizle
-contains	SearchBarView		içerir
-Create query based on search criteria	SearchBarView		Arama kriterinden sorgu oluştur
-Filter:	SearchBarView		Süzgeç:
-From	SearchBarView		Kimden
-matches	SearchBarView		eşleşir
-Select attribute(s) to query	SearchBarView		Sorgulanacak öznitelikleri seç
-Select search operator	SearchBarView		Arama işleci seç
-Subject	SearchBarView		Konu
-To	SearchBarView		Kime
-Type text and press Enter…	SearchBarView		Metin yazın ve Giriş’e basın…
 Add	ContentView		Ekle
 An error occurred trying to open this signature.	ContentView		Bu imzayı açmaya çalışırken bir hata oluştu.
 An error occurred trying to save the attachment.	ContentView		Ek kaydedilmeye çalışılırken bir hata oluştu.

@@ -1,4 +1,4 @@
-1	Japanese	application/x-vnd.EmailViews	2432148189
+1	Japanese	application/x-vnd.EmailViews	2343533018
  Read 	Toolbar	As short as possible	既読
 Attach	Toolbar	As short as possible	添付
 Check email	Toolbar	As short as possible	更新
@@ -112,7 +112,9 @@ Your main text contains %ld unencodable characters. Perhaps a different characte
 [The draft has no body text to display]	EmailViewsWindow		[下書きに表示できる本文はありません]
 %d emails selected.	EmailViewsWindow		%d 通のメールが選択されています。
 %s emails	EmailViewsWindow		%s 通メール
+%s emails found	EmailViewsWindow		該当メール：%s通
 1 email	EmailViewsWindow		1 通メール
+1 email found	EmailViewsWindow		該当メール：1 通
 A query named '%name%' already exists.	EmailViewsWindow		「%name%」というクエリーは既に存在します。
 A query with the same search criteria already exists: '%name%'	EmailViewsWindow		同じ検索条件のクエリーは既に存在します: '%name%'
 About EmailViews…	EmailViewsWindow		EmailViews について…
@@ -122,6 +124,7 @@ Add 'From' query	EmailViewsWindow		「差出人」属性でクエリー追加
 Add 'To' query	EmailViewsWindow		「宛先」属性でクエリー追加
 All emails	EmailViewsWindow		全メール
 Are you sure you want to move %count% emails to Trash?	EmailViewsWindow		%count%通のメールをごみ箱に移動してもよろしいですか?
+Backup emails to ZIP…	EmailViewsWindow		メールをZIPファイルにバックアップ
 Backup failed	EmailViewsWindow		バックアップは失敗しました
 Cancel	EmailViewsWindow		中止
 Clear filter	EmailViewsWindow		フィルターを外す
@@ -147,6 +150,9 @@ Filter by 'Sender'	EmailViewsWindow		「差出人」属性でフィルター
 Filter by 'Subject'	EmailViewsWindow		「件名」属性でフィルター
 Forward	EmailViewsWindow		転送
 HTML message	EmailViewsWindow		HTML メッセージ
+Inbox	EmailViewsWindow		受信箱
+Inbox (%ld)	EmailViewsWindow		受信箱 (%ld)
+Loading…	EmailViewsWindow		読み込み中…
 Mark as read	EmailViewsWindow		既読にする
 Mark as spam	EmailViewsWindow		迷惑メール
 Mark as unread	EmailViewsWindow		未読にする
@@ -172,6 +178,7 @@ Reply	EmailViewsWindow		返信
 Reply all	EmailViewsWindow		全員返信
 Restore email	EmailViewsWindow		メールを復元
 Save backup as	EmailViewsWindow		名前を付けてバックアップを保存
+Searching…	EmailViewsWindow		検索中…
 Select an email to preview its contents.	EmailViewsWindow		メールを選択したらプレビューは表示されます。
 Select folder	EmailViewsWindow		フォルダー選択
 Sent emails	EmailViewsWindow		送信済メール
@@ -201,13 +208,14 @@ You are trying to restore 1 message that belongs to an account that is not confi
 <no account found>	Preferences		<アカウントが見つかりません>
 Account from mail	Preferences		メールからのアカウント
 Add	Preferences		追加
+All emails	Preferences		すべてのメール
 Attach attributes:	Preferences		属性の添付:
+Auto mark email as read:	Preferences		メールの自動既読設定:
 Auto signature:	Preferences		自動署名:
-Automatically mark mail as read:	Preferences		メール自動的に既読にする:
 Beginner	Preferences		初心者
 Blocked senders and domains:	Preferences		ブロックされている差出人およびドメイン:
-Button bar:	Preferences		ツールバー:
 Cancel	Preferences		中止
+Check the query views you want visible in the sidebar.	Preferences		サイドバーに表示したいクエリービューにチェックを入れてください。
 Colored quotes:	Preferences		カラー引用:
 Default account:	Preferences		デフォルトアカウント:
 Email preferences	Preferences		メール環境設定
@@ -219,9 +227,10 @@ Initial spell check mode:	Preferences		スペルチェック設定:
 Mailing	Preferences		メール環境
 No file attributes, just plain data	Preferences		ファイル属性なし、ただのデータのみ
 None	Preferences		なし
-Off	Preferences		オフ
+Off	Preferences		無効
 OK	Preferences		OK
 On	Preferences		有効
+Optional sidebar views	Preferences		サイドバービューの表示設定
 Outgoing encoding:	Preferences		送信エンコーディング:
 Remove	Preferences		削除
 Reply account:	Preferences		返信アカウント:
@@ -230,13 +239,17 @@ Revert	Preferences		元に戻す
 Show icons & labels	Preferences		アイコンとラベルを表示
 Show icons only	Preferences		アイコンのみ表示
 Size:	Preferences		サイズ:
-Spam filtering	Preferences		スパムフィルター
+Spam	Preferences		スパム
+Spam filter	Preferences		スパムフィルター
+Starred emails	Preferences		スター付メール
 Text wrapping:	Preferences		テキスト折り返し:
 Time range slider:	Preferences		対象期間スライダー:
+Toolbar:	Preferences		ツールバー:
 Use default account	Preferences		デフォルトアカウントを使用
-Use system font size	Preferences		システムフォントサイズを使う
+Use system fixed font size	Preferences		システム等幅フォントを使用
 User interface	Preferences		ユーザインターフェース
 Warn unencodable:	Preferences		エンコード不可警告:
+With attachments	Preferences		添付ファイル付メール
 \\n\\nOn %d %n wrote:\\n	ReaderSettings		\\n\\n%d に %n が書きました:\\n
 None	ReaderSettings		なし
 %count% new emails	DeskbarReplicant		未読メール %count% 通
@@ -257,6 +270,21 @@ From:	HeaderView		差出人:
 Subject:	HeaderView		件名:
 To:	HeaderView		宛先:
 Unknown	HeaderView		不明
+Abort search	SearchBarView		検索中断
+Account	SearchBarView		アカウント
+Clear filter	SearchBarView		フィルターをクリアー
+Clear search	SearchBarView		検索をクリアー
+contains	SearchBarView		含む
+Create query based on filter criteria	SearchBarView		フィルター条件に基づいてクエリを作成する
+Filter:	SearchBarView		フィルター:
+From	SearchBarView		差出人
+matches	SearchBarView		一致
+Search:	SearchBarView		検索:
+Select attribute to filter by	SearchBarView		フィルターする属性を選択してください
+Select search operator	SearchBarView		検索オペレーターを選択してください
+Subject	SearchBarView		件名
+To	SearchBarView		宛先
+Type text and press Enter…	SearchBarView		テキストを入力して Enter キーを押してください…
 Account	EmailColumnHeader		アカウント
 Account	EmailColumnHeader	Email list column header	アカウント
 Attachment	EmailColumnHeader		添付
@@ -271,20 +299,6 @@ Subject	EmailColumnHeader		件名
 Subject	EmailColumnHeader	Email list column header	件名
 To	EmailColumnHeader		宛先
 To	EmailColumnHeader	Email list column header	宛先
-Account	SearchBarView		アカウント
-Backup emails to ZIP file	SearchBarView		メールを ZIP ファイルにバックアップする
-Backup in progress…	SearchBarView		バックアップ進行中…
-Clear search box	SearchBarView		検索ボックスをクリア
-contains	SearchBarView		含む
-Create query based on search criteria	SearchBarView		検索条件に基づいてクエリを作成する
-Filter:	SearchBarView		フィルター:
-From	SearchBarView		差出人
-matches	SearchBarView		一致
-Select attribute(s) to query	SearchBarView		クエリする属性を選択してください
-Select search operator	SearchBarView		検索オペレーターを選択してください
-Subject	SearchBarView		件名
-To	SearchBarView		宛先
-Type text and press Enter…	SearchBarView		テキストを入力して Enter キーを押してください…
 Add	ContentView		追加
 An error occurred trying to open this signature.	ContentView		この署名を開こうとしたときエラーが発生しました。
 An error occurred trying to save the attachment.	ContentView		この添付ファイルを保存しょうとしたときエラーが発生しました。

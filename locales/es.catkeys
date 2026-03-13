@@ -1,4 +1,4 @@
-1	Spanish	application/x-vnd.EmailViews	2432148189
+1	Spanish	application/x-vnd.EmailViews	2343533018
  Read 	Toolbar	As short as possible	 Leer 
 Attach	Toolbar	As short as possible	Adjuntar
 Check email	Toolbar	As short as possible	Revisar correo
@@ -112,7 +112,9 @@ Your main text contains %ld unencodable characters. Perhaps a different characte
 [The draft has no body text to display]	EmailViewsWindow		[El borrador no tiene texto que mostrar].
 %d emails selected.	EmailViewsWindow		%d correos electrónicos seleccionados.
 %s emails	EmailViewsWindow		%s correos electrónicos
+%s emails found	EmailViewsWindow		%s correos electrónicos encontrados
 1 email	EmailViewsWindow		1 correo electrónico
+1 email found	EmailViewsWindow		1 correo electrónico encontrado
 A query named '%name%' already exists.	EmailViewsWindow		Ya existe una consulta denominada «%name%».
 A query with the same search criteria already exists: '%name%'	EmailViewsWindow		Ya existe una consulta con los mismos criterios de búsqueda: «%name%».
 About EmailViews…	EmailViewsWindow		Acerca de EmailViews...
@@ -122,9 +124,10 @@ Add 'From' query	EmailViewsWindow		Añadir consulta «De»
 Add 'To' query	EmailViewsWindow		Añadir consulta «Para»
 All emails	EmailViewsWindow		Todos los correos electrónicos
 Are you sure you want to move %count% emails to Trash?	EmailViewsWindow		¿Está seguro de que deseas mover %count% correos electrónicos a la Papelera?
+Backup emails to ZIP…	EmailViewsWindow		Backup emails to ZIP…
 Backup failed	EmailViewsWindow		Error en la copia de seguridad
 Cancel	EmailViewsWindow		Cancelar
-Clear filter	EmailViewsWindow		Clear filter
+Clear filter	EmailViewsWindow		Limpiar filtro
 Could not get email reference.	EmailViewsWindow		No se ha podido obtener la referencia del correo electrónico.
 Could not open email file.	EmailViewsWindow		No se ha podido abrir el archivo de correo electrónico.
 Create anyway	EmailViewsWindow		Crear de todos modos
@@ -140,13 +143,16 @@ Email preferences…	EmailViewsWindow		Preferencias de correo electrónico...
 Error	EmailViewsWindow		Error
 Failed to create query file.	EmailViewsWindow		No se ha podido crear el archivo de consulta.
 Failed to start backup thread.	EmailViewsWindow		No se ha podido iniciar el subproceso de copia de seguridad.
-Filter	EmailViewsWindow		Filter
-Filter by 'Account'	EmailViewsWindow		Filter by 'Account'
-Filter by 'Recipient'	EmailViewsWindow		Filter by 'Recipient'
-Filter by 'Sender'	EmailViewsWindow		Filter by 'Sender'
-Filter by 'Subject'	EmailViewsWindow		Filter by 'Subject'
+Filter	EmailViewsWindow		Filtro
+Filter by 'Account'	EmailViewsWindow		Filtro por «Cuenta»
+Filter by 'Recipient'	EmailViewsWindow		Filtro por «Destinatario»
+Filter by 'Sender'	EmailViewsWindow		Filtro por «Remitente»
+Filter by 'Subject'	EmailViewsWindow		Filtro por «Asunto»
 Forward	EmailViewsWindow		Adelante
 HTML message	EmailViewsWindow		Mensaje HTML
+Inbox	EmailViewsWindow		Inbox
+Inbox (%ld)	EmailViewsWindow		Inbox (%ld)
+Loading…	EmailViewsWindow		Loading…
 Mark as read	EmailViewsWindow		Marcar como leído
 Mark as spam	EmailViewsWindow		Marcar como basura
 Mark as unread	EmailViewsWindow		Marcar como no leído
@@ -155,9 +161,9 @@ Move to Trash	EmailViewsWindow		Mover a la papelera
 New email	EmailViewsWindow		Nuevo correo electrónico
 No emails found.	EmailViewsWindow		No se han encontrado correos electrónicos.
 No emails in Trash.	EmailViewsWindow		No hay correos electrónicos en la papelera.
-No emails match this query.	EmailViewsWindow		No emails match this query.
+No emails match this query.	EmailViewsWindow		No hay correos electrónicos que coincidan con esta consulta.
 No emails match your search.	EmailViewsWindow		No hay correos electrónicos que coincidan con tu búsqueda.
-No spam emails.	EmailViewsWindow		No spam emails.
+No spam emails.	EmailViewsWindow		No hay correos basura.
 Not spam	EmailViewsWindow		No es basura
 OK	EmailViewsWindow		Aceptar
 Open queries folder	EmailViewsWindow		Abrir carpeta de consultas
@@ -172,11 +178,12 @@ Reply	EmailViewsWindow		Responder
 Reply all	EmailViewsWindow		Responder a todos
 Restore email	EmailViewsWindow		Restaurar correo electrónico
 Save backup as	EmailViewsWindow		Guardar copia de seguridad como
+Searching…	EmailViewsWindow		Buscando...
 Select an email to preview its contents.	EmailViewsWindow		Seleccione un correo electrónico para obtener una vista previa de su contenido.
 Select folder	EmailViewsWindow		Seleccionar carpeta
 Sent emails	EmailViewsWindow		Correos electrónicos enviados
 Show in Deskbar	EmailViewsWindow		Mostrar en la barra de escritorio
-Show time range	EmailViewsWindow		Show time range
+Show time range	EmailViewsWindow		Mostrar intervalo de tiempo
 Sorry, could not find an application that supports the 'Person' data type.	EmailViewsWindow		Lo sentimos, no se ha encontrado ninguna aplicación que admita el tipo de datos «Persona».
 Spam	EmailViewsWindow		Correo basura
 Spam (%ld)	EmailViewsWindow		Correo basura (%ld)
@@ -201,18 +208,19 @@ You are trying to restore 1 message that belongs to an account that is not confi
 <no account found>	Preferences		<no se ha encontrado ninguna cuenta>
 Account from mail	Preferences		Cuenta desde el correo electrónico
 Add	Preferences		Añadir
+All emails	Preferences		All emails
 Attach attributes:	Preferences		Adjuntar atributos:
+Auto mark email as read:	Preferences		Auto mark email as read:
 Auto signature:	Preferences		Firma automática:
-Automatically mark mail as read:	Preferences		Marcar automáticamente el correo como leído:
 Beginner	Preferences		Principiante
 Blocked senders and domains:	Preferences		Remitentes y dominios bloqueados:
-Button bar:	Preferences		Barra de botones:
 Cancel	Preferences		Cancelar
+Check the query views you want visible in the sidebar.	Preferences		Check the query views you want visible in the sidebar.
 Colored quotes:	Preferences		Citas en color:
 Default account:	Preferences		Cuenta predeterminada:
 Email preferences	Preferences		Preferencias de correo electrónico
 Expert	Preferences		Experto
-Filter:	Preferences		Filter:
+Filter:	Preferences		Filtro:
 Font:	Preferences		Fuente:
 Include file attributes in attachments	Preferences		Incluir atributos de archivo en los adjuntos
 Initial spell check mode:	Preferences		Modo inicial de revisión ortográfica:
@@ -222,6 +230,7 @@ None	Preferences		Ninguno
 Off	Preferences		Desactivado
 OK	Preferences		Aceptar
 On	Preferences		Activado
+Optional sidebar views	Preferences		Optional sidebar views
 Outgoing encoding:	Preferences		Codificación de salida:
 Remove	Preferences		Eliminar
 Reply account:	Preferences		Cuenta de respuesta:
@@ -230,13 +239,17 @@ Revert	Preferences		Revertir
 Show icons & labels	Preferences		Mostrar iconos y etiquetas
 Show icons only	Preferences		Mostrar solo iconos
 Size:	Preferences		Tamaño:
-Spam filtering	Preferences		Filtrado de basura
+Spam	Preferences		Spam
+Spam filter	Preferences		Spam filter
+Starred emails	Preferences		Starred emails
 Text wrapping:	Preferences		Ajustar texto:
 Time range slider:	Preferences		Control deslizante de intervalo de tiempo:
+Toolbar:	Preferences		Barra de herramientas:
 Use default account	Preferences		Usar cuenta predeterminada
-Use system font size	Preferences		Usar el tamaño de fuente del sistema
+Use system fixed font size	Preferences		Use system fixed font size
 User interface	Preferences		Interfaz de usuario
 Warn unencodable:	Preferences		Advertencia no codificable:
+With attachments	Preferences		With attachments
 \\n\\nOn %d %n wrote:\\n	ReaderSettings		\\n\\nEl %d %n escribió:\\n
 None	ReaderSettings		Ninguno
 %count% new emails	DeskbarReplicant		%count% correos electrónicos nuevos
@@ -257,6 +270,21 @@ From:	HeaderView		De:
 Subject:	HeaderView		Asunto:
 To:	HeaderView		Para:
 Unknown	HeaderView		Desconocido
+Abort search	SearchBarView		Cancelar búsqueda
+Account	SearchBarView		Cuenta
+Clear filter	SearchBarView		Clear filter
+Clear search	SearchBarView		Clear search
+contains	SearchBarView		contiene
+Create query based on filter criteria	SearchBarView		Create query based on filter criteria
+Filter:	SearchBarView		Filtro:
+From	SearchBarView		De
+matches	SearchBarView		coincidencias
+Search:	SearchBarView		Search:
+Select attribute to filter by	SearchBarView		Select attribute to filter by
+Select search operator	SearchBarView		Seleccionar operador de búsqueda
+Subject	SearchBarView		Asunto
+To	SearchBarView		Para
+Type text and press Enter…	SearchBarView		Escriba el texto y pulse Intro...
 Account	EmailColumnHeader		Cuenta
 Account	EmailColumnHeader	Email list column header	Cuenta
 Attachment	EmailColumnHeader		Archivo adjunto
@@ -271,20 +299,6 @@ Subject	EmailColumnHeader		Asunto
 Subject	EmailColumnHeader	Email list column header	Asunto
 To	EmailColumnHeader		Para
 To	EmailColumnHeader	Email list column header	Para
-Account	SearchBarView		Cuenta
-Backup emails to ZIP file	SearchBarView		Copia de seguridad de correos electrónicos en un archivo ZIP
-Backup in progress…	SearchBarView		Copia de seguridad en curso...
-Clear search box	SearchBarView		Borrar cuadro de búsqueda
-contains	SearchBarView		contiene
-Create query based on search criteria	SearchBarView		Crear consulta basada en criterios de búsqueda
-Filter:	SearchBarView		Filtro:
-From	SearchBarView		De
-matches	SearchBarView		coincidencias
-Select attribute(s) to query	SearchBarView		Seleccione los atributos que desea consultar.
-Select search operator	SearchBarView		Seleccionar operador de búsqueda
-Subject	SearchBarView		Asunto
-To	SearchBarView		Para
-Type text and press Enter…	SearchBarView		Escriba el texto y pulse Intro...
 Add	ContentView		Añadir
 An error occurred trying to open this signature.	ContentView		Se ha producido un error al intentar abrir esta firma.
 An error occurred trying to save the attachment.	ContentView		Se ha producido un error al intentar guardar el archivo adjunto.
@@ -303,10 +317,10 @@ Add 'From' query	EmailListView		Añadir consulta «De»
 Add 'To' query	EmailListView		Añadir consulta «Para»
 Create Person file for	EmailListView		Crear archivo de Persona para
 Delete permanently	EmailListView		Eliminar definitivamente
-Filter by 'Account'	EmailListView		Filtrar por «Cuenta»
-Filter by 'Recipient'	EmailListView		Filtrar por «Destinatario»
-Filter by 'Sender'	EmailListView		Filtrar por «Remitente»
-Filter by 'Subject'	EmailListView		Filtrar por «Asunto»
+Filter by 'Account'	EmailListView		Filtro por «Cuenta»
+Filter by 'Recipient'	EmailListView		Filtro por «Destinatario»
+Filter by 'Sender'	EmailListView		Filtro por «Remitente»
+Filter by 'Subject'	EmailListView		Filtro por «Asunto»
 Forward	EmailListView		Adelante
 Mark as read	EmailListView		Marcar como leído
 Mark as spam	EmailListView		Marcar como basura

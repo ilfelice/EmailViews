@@ -1,4 +1,4 @@
-1	German	application/x-vnd.EmailViews	2432148189
+1	German	application/x-vnd.EmailViews	2343533018
  Read 	Toolbar	As short as possible	Gelesen
 Attach	Toolbar	As short as possible	Anhang
 Check email	Toolbar	As short as possible	Emails abrufen
@@ -112,7 +112,9 @@ Your main text contains %ld unencodable characters. Perhaps a different characte
 [The draft has no body text to display]	EmailViewsWindow		[Der Entwurf enthält keinen Text]
 %d emails selected.	EmailViewsWindow		%d Emails ausgewählt.
 %s emails	EmailViewsWindow		%s Emails
+%s emails found	EmailViewsWindow		%s Emails gefunden
 1 email	EmailViewsWindow		1 Email
+1 email found	EmailViewsWindow		Eine Email gefunden
 A query named '%name%' already exists.	EmailViewsWindow		Eine Query namens '%name%' existiert bereits.
 A query with the same search criteria already exists: '%name%'	EmailViewsWindow		Eine Query mit denselben Suchkriterien existiert bereits:  %name%'
 About EmailViews…	EmailViewsWindow		Über EmailViews …
@@ -122,9 +124,10 @@ Add 'From' query	EmailViewsWindow		Gleicher Absender
 Add 'To' query	EmailViewsWindow		Gleicher Empfänger
 All emails	EmailViewsWindow		Alle Emails
 Are you sure you want to move %count% emails to Trash?	EmailViewsWindow		Sollen tatsächlich %count% Emails in den Papierkorb verschoben werden?
+Backup emails to ZIP…	EmailViewsWindow		Backup emails to ZIP…
 Backup failed	EmailViewsWindow		Sicherung fehlgeschlagen
 Cancel	EmailViewsWindow		Abbrechen
-Clear filter	EmailViewsWindow		Clear filter
+Clear filter	EmailViewsWindow		Filter löschen
 Could not get email reference.	EmailViewsWindow		Keine Email-Referenz bekommen.
 Could not open email file.	EmailViewsWindow		Email-Datei konnte nicht geöffnet werden.
 Create anyway	EmailViewsWindow		Trotzdem erzeugen
@@ -141,12 +144,15 @@ Error	EmailViewsWindow		Fehler
 Failed to create query file.	EmailViewsWindow		Query-Datei konnte nicht erzeugt werden.
 Failed to start backup thread.	EmailViewsWindow		Sicherungs-Thread konnte nicht erzeugt werden.
 Filter	EmailViewsWindow		Filter
-Filter by 'Account'	EmailViewsWindow		Filter by 'Account'
-Filter by 'Recipient'	EmailViewsWindow		Filter by 'Recipient'
-Filter by 'Sender'	EmailViewsWindow		Filter by 'Sender'
-Filter by 'Subject'	EmailViewsWindow		Filter by 'Subject'
+Filter by 'Account'	EmailViewsWindow		Nach 'Konto' filtern
+Filter by 'Recipient'	EmailViewsWindow		Nach 'Empfänger' filtern
+Filter by 'Sender'	EmailViewsWindow		Nach 'Absender' filtern
+Filter by 'Subject'	EmailViewsWindow		Nach 'Betreff' filtern
 Forward	EmailViewsWindow		Weiterleiten
 HTML message	EmailViewsWindow		HTML Nachricht
+Inbox	EmailViewsWindow		Inbox
+Inbox (%ld)	EmailViewsWindow		Inbox (%ld)
+Loading…	EmailViewsWindow		Loading…
 Mark as read	EmailViewsWindow		Als gelesen markieren
 Mark as spam	EmailViewsWindow		Als Spam markieren
 Mark as unread	EmailViewsWindow		Als ungelesen markieren
@@ -155,9 +161,9 @@ Move to Trash	EmailViewsWindow		In den Papierkorb verschieben
 New email	EmailViewsWindow		Neue Email
 No emails found.	EmailViewsWindow		Keine Emails gefunden.
 No emails in Trash.	EmailViewsWindow		Keine Emails im Papierkorb.
-No emails match this query.	EmailViewsWindow		No emails match this query.
+No emails match this query.	EmailViewsWindow		Keine Emails entsprechen der Query.
 No emails match your search.	EmailViewsWindow		Keine Emails entsprechen den Suchkriterien.
-No spam emails.	EmailViewsWindow		No spam emails.
+No spam emails.	EmailViewsWindow		Kein Spam vorhanden.
 Not spam	EmailViewsWindow		Kein Spam
 OK	EmailViewsWindow		OK
 Open queries folder	EmailViewsWindow		Query-Ordner öffnen
@@ -172,11 +178,12 @@ Reply	EmailViewsWindow		Antworten
 Reply all	EmailViewsWindow		Allen antworten
 Restore email	EmailViewsWindow		Email wiederherstellen
 Save backup as	EmailViewsWindow		Sicherung speichern als
+Searching…	EmailViewsWindow		Suche …
 Select an email to preview its contents.	EmailViewsWindow		Email auswählen, um einen Preview anzuzeigen.
 Select folder	EmailViewsWindow		Ordner auswählen
 Sent emails	EmailViewsWindow		Gesendete Emails
 Show in Deskbar	EmailViewsWindow		Icon in Deskbar anzeigen
-Show time range	EmailViewsWindow		Show time range
+Show time range	EmailViewsWindow		Zeitraum anzeigen
 Sorry, could not find an application that supports the 'Person' data type.	EmailViewsWindow		Es konnte leider keine Anwendung gefunden werden, die den Datentyp 'Person' unterstützt.
 Spam	EmailViewsWindow		Spam
 Spam (%ld)	EmailViewsWindow		Spam (%ld)
@@ -184,7 +191,7 @@ Starred emails	EmailViewsWindow		Emails mit Stern
 Subject:	EmailViewsWindow		Betreff:
 There are no emails in the Trash.	EmailViewsWindow		Im Papierkorb befinden sich keine Emails.
 This message is HTML formatted.\nClick below to open it in the default browser.	EmailViewsWindow		Diese Nachricht ist HTML-formatiert.\nUnten klicken, um sie im Standard-Browser zu öffnen.
-Time range:	EmailViewsWindow		Zeitspanne:
+Time range:	EmailViewsWindow		Zeitraum:
 To:	EmailViewsWindow		An:
 Undo Move to Trash	EmailViewsWindow		Wieder aus Papierkorb holen
 Unread emails	EmailViewsWindow		Ungelesene Emails
@@ -201,13 +208,14 @@ You are trying to restore 1 message that belongs to an account that is not confi
 <no account found>	Preferences		<kein Konto gefunden>
 Account from mail	Preferences		Konto der Nachricht
 Add	Preferences		Hinzufügen
+All emails	Preferences		All emails
 Attach attributes:	Preferences		Attribute von Anhängen
+Auto mark email as read:	Preferences		Auto mark email as read:
 Auto signature:	Preferences		Automatische Signatur:
-Automatically mark mail as read:	Preferences		Nachrichten automatisch als gelesen markieren:
 Beginner	Preferences		Anfänger
 Blocked senders and domains:	Preferences		Blockierte Absender und Domänen:
-Button bar:	Preferences		Werkzeugleiste:
 Cancel	Preferences		Abbrechen
+Check the query views you want visible in the sidebar.	Preferences		Check the query views you want visible in the sidebar.
 Colored quotes:	Preferences		Farbige Zitate:
 Default account:	Preferences		Standardkonto:
 Email preferences	Preferences		Email-Einstellungen
@@ -222,6 +230,7 @@ None	Preferences		Keine
 Off	Preferences		Aus
 OK	Preferences		OK
 On	Preferences		Ein
+Optional sidebar views	Preferences		Optional sidebar views
 Outgoing encoding:	Preferences		Zeichenkodierung:
 Remove	Preferences		Entfernen
 Reply account:	Preferences		Konto zum Beantworten:
@@ -230,13 +239,17 @@ Revert	Preferences		Anfangswerte
 Show icons & labels	Preferences		Icons und Beschriftung anzeigen
 Show icons only	Preferences		Nur Icons zeigen
 Size:	Preferences		Größe:
-Spam filtering	Preferences		Spamfilter
+Spam	Preferences		Spam
+Spam filter	Preferences		Spam filter
+Starred emails	Preferences		Starred emails
 Text wrapping:	Preferences		Zeilenumbruch:
 Time range slider:	Preferences		Zeitraum Schieberegler:
+Toolbar:	Preferences		Werkzeugleiste:
 Use default account	Preferences		Standardkonto
-Use system font size	Preferences		System-Schriftgröße verwenden
+Use system fixed font size	Preferences		Use system fixed font size
 User interface	Preferences		Programmoberfläche
 Warn unencodable:	Preferences		Warnung bei nicht-kodierbaren Zeichen:
+With attachments	Preferences		With attachments
 \\n\\nOn %d %n wrote:\\n	ReaderSettings		Hallo %n,\\n\\nAm %d schrieb %n:\\n
 None	ReaderSettings		Keine
 %count% new emails	DeskbarReplicant		%count% neue Emails
@@ -257,6 +270,21 @@ From:	HeaderView		Von:
 Subject:	HeaderView		Betreff:
 To:	HeaderView		An:
 Unknown	HeaderView		Unbekannt
+Abort search	SearchBarView		Suche abbrechen
+Account	SearchBarView		Konto
+Clear filter	SearchBarView		Clear filter
+Clear search	SearchBarView		Clear search
+contains	SearchBarView		enthält
+Create query based on filter criteria	SearchBarView		Create query based on filter criteria
+Filter:	SearchBarView		Filter:
+From	SearchBarView		Absender
+matches	SearchBarView		ist
+Search:	SearchBarView		Search:
+Select attribute to filter by	SearchBarView		Select attribute to filter by
+Select search operator	SearchBarView		Suchmodus wählen
+Subject	SearchBarView		Betreff
+To	SearchBarView		Empfänger
+Type text and press Enter…	SearchBarView		Text eingeben und Enter drücken …
 Account	EmailColumnHeader		Konto
 Account	EmailColumnHeader	Email list column header	Konto
 Attachment	EmailColumnHeader		Anhang
@@ -271,27 +299,13 @@ Subject	EmailColumnHeader		Betreff
 Subject	EmailColumnHeader	Email list column header	Betreff
 To	EmailColumnHeader		Empfänger
 To	EmailColumnHeader	Email list column header	Empfänger
-Account	SearchBarView		Konto
-Backup emails to ZIP file	SearchBarView		Emails als ZIP Archiv sichern
-Backup in progress…	SearchBarView		Sicherung läuft …
-Clear search box	SearchBarView		Suchfeld leeren
-contains	SearchBarView		enthält
-Create query based on search criteria	SearchBarView		Query mit diesen Suchkriterien erstellen
-Filter:	SearchBarView		Filter:
-From	SearchBarView		Absender
-matches	SearchBarView		ist
-Select attribute(s) to query	SearchBarView		Attribut der Query wählen
-Select search operator	SearchBarView		Suchmodus wählen
-Subject	SearchBarView		Betreff
-To	SearchBarView		Empfänger
-Type text and press Enter…	SearchBarView		Text eingeben und Enter drücken …
 Add	ContentView		Hinzu
 An error occurred trying to open this signature.	ContentView		Beim Öffnen dieser Signatur ist ein Fehler aufgetreten.
 An error occurred trying to save the attachment.	ContentView		Beim Speichern des Anhangs ist ein Fehler aufgetreten.
 Attachment: %name% (Type: %type%)	ContentView	Don't translate the variables %name% and %type%.	Anhang: %name% (Typ: %type%)
 Copy link location	ContentView		Linkadresse kopieren
 Inconsistency occurred in the undo/redo buffer.	ContentView		Es ist ein Fehler im Rückgängig/Wiederherstellen-Puffer aufgetreten.
-No matches	ContentView		No matchesNo matches
+No matches	ContentView		Keine Treffer
 OK	ContentView		OK
 Open attachment	ContentView		Anhang öffnen
 Open this link	ContentView		Link öffnen

@@ -1,4 +1,4 @@
-1	English (Canada)	application/x-vnd.EmailViews	2432148189
+1	English (Canada)	application/x-vnd.EmailViews	2343533018
  Read 	Toolbar	As short as possible	 Read 
 Attach	Toolbar	As short as possible	Attach
 Check email	Toolbar	As short as possible	Check email
@@ -112,7 +112,9 @@ Your main text contains %ld unencodable characters. Perhaps a different characte
 [The draft has no body text to display]	EmailViewsWindow		[The draft has no body text to display]
 %d emails selected.	EmailViewsWindow		%d emails selected.
 %s emails	EmailViewsWindow		%s emails
+%s emails found	EmailViewsWindow		%s emails found
 1 email	EmailViewsWindow		1 email
+1 email found	EmailViewsWindow		1 email found
 A query named '%name%' already exists.	EmailViewsWindow		A query named '%name%' already exists.
 A query with the same search criteria already exists: '%name%'	EmailViewsWindow		A query with the same search criteria already exists: '%name%'
 About EmailViews…	EmailViewsWindow		About EmailViews…
@@ -122,6 +124,7 @@ Add 'From' query	EmailViewsWindow		Add 'From' query
 Add 'To' query	EmailViewsWindow		Add 'To' query
 All emails	EmailViewsWindow		All emails
 Are you sure you want to move %count% emails to Trash?	EmailViewsWindow		Are you sure you want to move %count% emails to Trash?
+Backup emails to ZIP…	EmailViewsWindow		Backup emails to ZIP…
 Backup failed	EmailViewsWindow		Backup failed
 Cancel	EmailViewsWindow		Cancel
 Clear filter	EmailViewsWindow		Clear filter
@@ -147,6 +150,9 @@ Filter by 'Sender'	EmailViewsWindow		Filter by 'Sender'
 Filter by 'Subject'	EmailViewsWindow		Filter by 'Subject'
 Forward	EmailViewsWindow		Forward
 HTML message	EmailViewsWindow		HTML message
+Inbox	EmailViewsWindow		Inbox
+Inbox (%ld)	EmailViewsWindow		Inbox (%ld)
+Loading…	EmailViewsWindow		Loading…
 Mark as read	EmailViewsWindow		Mark as read
 Mark as spam	EmailViewsWindow		Mark as spam
 Mark as unread	EmailViewsWindow		Mark as unread
@@ -172,6 +178,7 @@ Reply	EmailViewsWindow		Reply
 Reply all	EmailViewsWindow		Reply all
 Restore email	EmailViewsWindow		Restore email
 Save backup as	EmailViewsWindow		Save backup as
+Searching…	EmailViewsWindow		Searching…
 Select an email to preview its contents.	EmailViewsWindow		Select an email to preview its contents.
 Select folder	EmailViewsWindow		Select folder
 Sent emails	EmailViewsWindow		Sent emails
@@ -201,13 +208,14 @@ You are trying to restore 1 message that belongs to an account that is not confi
 <no account found>	Preferences		<no account found>
 Account from mail	Preferences		Account from mail
 Add	Preferences		Add
+All emails	Preferences		All emails
 Attach attributes:	Preferences		Attach attributes:
+Auto mark email as read:	Preferences		Auto mark email as read:
 Auto signature:	Preferences		Auto signature:
-Automatically mark mail as read:	Preferences		Automatically mark mail as read:
 Beginner	Preferences		Beginner
 Blocked senders and domains:	Preferences		Blocked senders and domains:
-Button bar:	Preferences		Button bar:
 Cancel	Preferences		Cancel
+Check the query views you want visible in the sidebar.	Preferences		Check the query views you want visible in the sidebar.
 Colored quotes:	Preferences		Coloured quotes:
 Default account:	Preferences		Default account:
 Email preferences	Preferences		Email preferences
@@ -222,6 +230,7 @@ None	Preferences		None
 Off	Preferences		Off
 OK	Preferences		Alright
 On	Preferences		On
+Optional sidebar views	Preferences		Optional sidebar views
 Outgoing encoding:	Preferences		Outgoing encoding:
 Remove	Preferences		Remove
 Reply account:	Preferences		Reply account:
@@ -230,13 +239,17 @@ Revert	Preferences		Revert
 Show icons & labels	Preferences		Show icons & labels
 Show icons only	Preferences		Show icons only
 Size:	Preferences		Size:
-Spam filtering	Preferences		Spam filtering
+Spam	Preferences		Spam
+Spam filter	Preferences		Spam filter
+Starred emails	Preferences		Starred emails
 Text wrapping:	Preferences		Text wrapping:
 Time range slider:	Preferences		Time range slider:
+Toolbar:	Preferences		Toolbar:
 Use default account	Preferences		Use default account
-Use system font size	Preferences		Use system font size
+Use system fixed font size	Preferences		Use system fixed font size
 User interface	Preferences		User interface
 Warn unencodable:	Preferences		Warn unencodable:
+With attachments	Preferences		With attachments
 \\n\\nOn %d %n wrote:\\n	ReaderSettings		\\n\\nOn %d %n wrote:\\n
 None	ReaderSettings		None
 %count% new emails	DeskbarReplicant		%count% new emails
@@ -257,6 +270,21 @@ From:	HeaderView		From:
 Subject:	HeaderView		Subject:
 To:	HeaderView		To:
 Unknown	HeaderView		Unknown
+Abort search	SearchBarView		Abort search
+Account	SearchBarView		Account
+Clear filter	SearchBarView		Clear filter
+Clear search	SearchBarView		Clear search
+contains	SearchBarView		contains
+Create query based on filter criteria	SearchBarView		Create query based on filter criteria
+Filter:	SearchBarView		Filter:
+From	SearchBarView		From
+matches	SearchBarView		matches
+Search:	SearchBarView		Search:
+Select attribute to filter by	SearchBarView		Select attribute to filter by
+Select search operator	SearchBarView		Select search operator
+Subject	SearchBarView		Subject
+To	SearchBarView		To
+Type text and press Enter…	SearchBarView		Type text and press Enter…
 Account	EmailColumnHeader		Account
 Account	EmailColumnHeader	Email list column header	Account
 Attachment	EmailColumnHeader		Attachment
@@ -271,20 +299,6 @@ Subject	EmailColumnHeader		Subject
 Subject	EmailColumnHeader	Email list column header	Subject
 To	EmailColumnHeader		To
 To	EmailColumnHeader	Email list column header	To
-Account	SearchBarView		Account
-Backup emails to ZIP file	SearchBarView		Backup emails to ZIP file
-Backup in progress…	SearchBarView		Backup in progress…
-Clear search box	SearchBarView		Clear search box
-contains	SearchBarView		contains
-Create query based on search criteria	SearchBarView		Create query based on search criteria
-Filter:	SearchBarView		Filter:
-From	SearchBarView		From
-matches	SearchBarView		matches
-Select attribute(s) to query	SearchBarView		Select attribute(s) to query
-Select search operator	SearchBarView		Select search operator
-Subject	SearchBarView		Subject
-To	SearchBarView		To
-Type text and press Enter…	SearchBarView		Type text and press Enter…
 Add	ContentView		Add
 An error occurred trying to open this signature.	ContentView		An error occurred trying to open this signature.
 An error occurred trying to save the attachment.	ContentView		An error occurred trying to save the attachment.

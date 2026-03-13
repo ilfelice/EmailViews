@@ -1,4 +1,4 @@
-1	Catalan	application/x-vnd.EmailViews	2432148189
+1	Catalan	application/x-vnd.EmailViews	2343533018
  Read 	Toolbar	As short as possible	Llegit
 Attach	Toolbar	As short as possible	Adjunta
 Check email	Toolbar	As short as possible	Comprova el correu
@@ -112,7 +112,9 @@ Your main text contains %ld unencodable characters. Perhaps a different characte
 [The draft has no body text to display]	EmailViewsWindow		[L'esborrany no té text de cos per mostrar.]
 %d emails selected.	EmailViewsWindow		%d missatges seleccionats.
 %s emails	EmailViewsWindow		%s missatges
+%s emails found	EmailViewsWindow		%s missatges trobats
 1 email	EmailViewsWindow		1 missatge
+1 email found	EmailViewsWindow		1 missatge trobat
 A query named '%name%' already exists.	EmailViewsWindow		Ja existeix una consulta anomenada %name%.
 A query with the same search criteria already exists: '%name%'	EmailViewsWindow		Ja existeix una consulta amb els mateixos criteris de cerca: %name%
 About EmailViews…	EmailViewsWindow		Quant a l'EmailViews…
@@ -122,9 +124,10 @@ Add 'From' query	EmailViewsWindow		Afegeix una consulta de remitent
 Add 'To' query	EmailViewsWindow		Afegeix una consulta de destinatari
 All emails	EmailViewsWindow		Tots els missatges
 Are you sure you want to move %count% emails to Trash?	EmailViewsWindow		Segur que voleu moure %count% missatges a la paperera?
+Backup emails to ZIP…	EmailViewsWindow		Fes una còpia de seguretat dels missatges en un fitxer ZIP…
 Backup failed	EmailViewsWindow		La còpia de seguretat ha fallat.
 Cancel	EmailViewsWindow		Cancel·la
-Clear filter	EmailViewsWindow		Clear filter
+Clear filter	EmailViewsWindow		Neteja el filtre
 Could not get email reference.	EmailViewsWindow		No s'ha pogut obtenir la referència del correu electrònic.
 Could not open email file.	EmailViewsWindow		No s'ha pogut obrir el fitxer de correu electrònic.
 Create anyway	EmailViewsWindow		Crea'l tanmateix
@@ -140,13 +143,16 @@ Email preferences…	EmailViewsWindow		Preferències de correu electrònic...
 Error	EmailViewsWindow		Error
 Failed to create query file.	EmailViewsWindow		Ha fallat crear el fitxer de consulta.
 Failed to start backup thread.	EmailViewsWindow		Ha fallat iniciar el fil de còpia de seguretat.
-Filter	EmailViewsWindow		Filter
-Filter by 'Account'	EmailViewsWindow		Filter by 'Account'
-Filter by 'Recipient'	EmailViewsWindow		Filter by 'Recipient'
-Filter by 'Sender'	EmailViewsWindow		Filter by 'Sender'
-Filter by 'Subject'	EmailViewsWindow		Filter by 'Subject'
+Filter	EmailViewsWindow		Filtra
+Filter by 'Account'	EmailViewsWindow		Filtra per compte
+Filter by 'Recipient'	EmailViewsWindow		Filtra per destinatari
+Filter by 'Sender'	EmailViewsWindow		Filtra per remitent
+Filter by 'Subject'	EmailViewsWindow		Filtra per assumpte
 Forward	EmailViewsWindow		Reenvia
 HTML message	EmailViewsWindow		Missatge HTML
+Inbox	EmailViewsWindow		Bústia d'entrada
+Inbox (%ld)	EmailViewsWindow		Bústia d'entrada (%ld)
+Loading…	EmailViewsWindow		Es carrega...
 Mark as read	EmailViewsWindow		Marca com a llegit
 Mark as spam	EmailViewsWindow		Marca com a brossa
 Mark as unread	EmailViewsWindow		Marca com a no llegit
@@ -155,9 +161,9 @@ Move to Trash	EmailViewsWindow		Mou a la paperera
 New email	EmailViewsWindow		Missatge nou
 No emails found.	EmailViewsWindow		No s'ha trobat cap missatge.
 No emails in Trash.	EmailViewsWindow		No hi ha missatges a la paperera.
-No emails match this query.	EmailViewsWindow		No emails match this query.
+No emails match this query.	EmailViewsWindow		No hi ha cap missatge que coincideixi amb aquesta consulta.
 No emails match your search.	EmailViewsWindow		No hi ha cap missatge que coincideixi amb la cerca.
-No spam emails.	EmailViewsWindow		No spam emails.
+No spam emails.	EmailViewsWindow		No hi ha correu brossa.
 Not spam	EmailViewsWindow		No és brossa
 OK	EmailViewsWindow		D'acord
 Open queries folder	EmailViewsWindow		Obre la carpeta de consultes
@@ -172,11 +178,12 @@ Reply	EmailViewsWindow		Respon
 Reply all	EmailViewsWindow		Respon a tothom
 Restore email	EmailViewsWindow		Restaura el correu electrònic
 Save backup as	EmailViewsWindow		Desa la còpia de seguretat com a
+Searching…	EmailViewsWindow		Se cerca...
 Select an email to preview its contents.	EmailViewsWindow		Seleccioneu un missatge per previsualitzar-ne el contingut.
 Select folder	EmailViewsWindow		Seleccioneu la carpeta
 Sent emails	EmailViewsWindow		Missatges enviats
 Show in Deskbar	EmailViewsWindow		Mostra a la barra d'escriptori
-Show time range	EmailViewsWindow		Show time range
+Show time range	EmailViewsWindow		Mostra l'interval de temps
 Sorry, could not find an application that supports the 'Person' data type.	EmailViewsWindow		Perdoneu, no s'ha trobat cap aplicació que admeti el tipus de dades de persona.
 Spam	EmailViewsWindow		Brossa
 Spam (%ld)	EmailViewsWindow		Brossa (%ld)
@@ -201,18 +208,19 @@ You are trying to restore 1 message that belongs to an account that is not confi
 <no account found>	Preferences		<no s'ha trobat cap compte>
 Account from mail	Preferences		Compte del missatge
 Add	Preferences		Afegeix
+All emails	Preferences		Tots els missatges
 Attach attributes:	Preferences		Atributs de l'adjunt:
+Auto mark email as read:	Preferences		Marca automàticament el missatge com a llegit:
 Auto signature:	Preferences		Signatura automàtica:
-Automatically mark mail as read:	Preferences		Marca automàticament el missatge com a llegit:
 Beginner	Preferences		Principiant
 Blocked senders and domains:	Preferences		Remitents i dominis blocats:
-Button bar:	Preferences		Barra de botons:
 Cancel	Preferences		Cancel·la
+Check the query views you want visible in the sidebar.	Preferences		Marqueu les vistes de consulta que voleu que es vegin a la barra lateral.
 Colored quotes:	Preferences		Citacions acolorides:
 Default account:	Preferences		Compte predeterminat:
 Email preferences	Preferences		Preferències del correu
 Expert	Preferences		Expert
-Filter:	Preferences		Filter:
+Filter:	Preferences		Filtra:
 Font:	Preferences		Lletra:
 Include file attributes in attachments	Preferences		Inclou els atributs dels fitxers als adjunts
 Initial spell check mode:	Preferences		Mode de correcció ortogràfica inicial:
@@ -222,6 +230,7 @@ None	Preferences		Cap
 Off	Preferences		Deactivat
 OK	Preferences		D'acord
 On	Preferences		Activat
+Optional sidebar views	Preferences		Vistes opcionals de la barra lateral
 Outgoing encoding:	Preferences		Codificació de sortida:
 Remove	Preferences		Suprimeix
 Reply account:	Preferences		Compte de resposta:
@@ -230,13 +239,17 @@ Revert	Preferences		Reverteix
 Show icons & labels	Preferences		Mostra les icones i les etiquetes
 Show icons only	Preferences		Mostra només icones
 Size:	Preferences		Mida:
-Spam filtering	Preferences		Filtratge de correu brossa
+Spam	Preferences		Brossa
+Spam filter	Preferences		Filtre de correu brossa
+Starred emails	Preferences		Missatges destacats
 Text wrapping:	Preferences		Embolcall del text:
 Time range slider:	Preferences		Control lliscant de l'interval de temps:
+Toolbar:	Preferences		Barra d'eines:
 Use default account	Preferences		Usa el compte predeterminat
-Use system font size	Preferences		Usa la mida de lletra del sistema.
+Use system fixed font size	Preferences		Usa la mida de lletra fixa del sistema
 User interface	Preferences		Interfície de l'usuari
 Warn unencodable:	Preferences		Avís no codificable:
+With attachments	Preferences		Amb adjunts
 \\n\\nOn %d %n wrote:\\n	ReaderSettings		\\n\\nEl %n %d va escriure el següent:\\n
 None	ReaderSettings		Cap
 %count% new emails	DeskbarReplicant		%count% missatges nous
@@ -257,6 +270,21 @@ From:	HeaderView		De:
 Subject:	HeaderView		Assumpte:
 To:	HeaderView		A:
 Unknown	HeaderView		Desconegut
+Abort search	SearchBarView		Atura la cerca
+Account	SearchBarView		Compte
+Clear filter	SearchBarView		Neteja el filtre
+Clear search	SearchBarView		Neteja la cerca
+contains	SearchBarView		conté
+Create query based on filter criteria	SearchBarView		Crea una consulta basada en criteris de filtre
+Filter:	SearchBarView		Filtre:
+From	SearchBarView		De
+matches	SearchBarView		coincidències
+Search:	SearchBarView		Cerca:
+Select attribute to filter by	SearchBarView		Selecciona l'atribut per filtrar
+Select search operator	SearchBarView		Seleccioneu l'operador de cerca
+Subject	SearchBarView		Assumpte
+To	SearchBarView		A
+Type text and press Enter…	SearchBarView		Escriviu text i premeu retorn…
 Account	EmailColumnHeader		Compte
 Account	EmailColumnHeader	Email list column header	Compte
 Attachment	EmailColumnHeader		Adjunt
@@ -271,20 +299,6 @@ Subject	EmailColumnHeader		Assumpte
 Subject	EmailColumnHeader	Email list column header	Assumpte
 To	EmailColumnHeader		A
 To	EmailColumnHeader	Email list column header	A
-Account	SearchBarView		Compte
-Backup emails to ZIP file	SearchBarView		Còpia de seguretat dels missatges en un fitxer ZIP
-Backup in progress…	SearchBarView		Còpia de seguretat en curs...
-Clear search box	SearchBarView		Esborra el quadre de cerca
-contains	SearchBarView		conté
-Create query based on search criteria	SearchBarView		Crea una consulta basada en criteris de cerca
-Filter:	SearchBarView		Filtre:
-From	SearchBarView		De
-matches	SearchBarView		coincidències
-Select attribute(s) to query	SearchBarView		Seleccioneu l'atribut o atributs per consultar
-Select search operator	SearchBarView		Seleccioneu l'operador de cerca
-Subject	SearchBarView		Assumpte
-To	SearchBarView		A
-Type text and press Enter…	SearchBarView		Escriviu text i premeu retorn…
 Add	ContentView		Afegeix
 An error occurred trying to open this signature.	ContentView		Hi ha hagut un error en intentar obrir aquesta signatura.
 An error occurred trying to save the attachment.	ContentView		Hi ha hagut un error en intentar desar el fitxer adjunt.
