@@ -1151,7 +1151,7 @@ EmailViewsWindow::EmailViewsWindow()
     // Add keyboard shortcut for time range slider toggle (Cmd+Shift+T)
     AddShortcut('T', B_COMMAND_KEY | B_SHIFT_KEY, new BMessage(MSG_TOGGLE_TIME_RANGE));
     AddShortcut('A', B_COMMAND_KEY, new BMessage(MSG_SELECT_ALL_EMAILS));
-    AddShortcut('S', B_COMMAND_KEY, new BMessage(MSG_FOCUS_SEARCH));
+    AddShortcut('F', B_COMMAND_KEY, new BMessage(MSG_FOCUS_SEARCH));
     AddShortcut('Z', B_COMMAND_KEY, new BMessage(MSG_UNDO_DELETE));
     
     // Alt+Up/Down navigates the query sidebar regardless of focus
