@@ -50,6 +50,14 @@ PlaceholderTextView::MakeFocus(bool focus)
 void
 PlaceholderTextView::KeyDown(const char* bytes, int32 numBytes)
 {
+	if (numBytes == 1 && bytes[0] == B_ESCAPE) {
+		// Trigger the clear action on our parent SearchTextControl
+		SearchTextControl* control =
+			dynamic_cast<SearchTextControl*>(Parent());
+		if (control != NULL)
+			control->TriggerClear();
+		return;
+	}
 	if (numBytes == 1 && bytes[0] == B_TAB) {
 		// Navigate to the next/previous tab stop within our SearchBarView
 		// ancestor instead of inserting a tab character.

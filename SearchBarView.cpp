@@ -317,6 +317,14 @@ SearchTextControl::SetClearToolTip(const char* tip)
 
 
 void
+SearchTextControl::TriggerClear()
+{
+	if (fClearEnabled && fClearMessage != NULL && fClearTarget.IsValid())
+		fClearTarget.SendMessage(fClearMessage);
+}
+
+
+void
 SearchTextControl::_LayoutTextView()
 {
 	BRect frame = Bounds();

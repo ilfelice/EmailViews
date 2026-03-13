@@ -86,6 +86,9 @@ public:
 	bool IsClearEnabled() const { return fClearEnabled; }
 	void SetClearToolTip(const char* tip);
 
+	// Programmatically trigger the clear action (same as clicking ×)
+	void TriggerClear();
+
 private:
 	void _LayoutTextView();
 	BRect _ClearButtonZone() const;

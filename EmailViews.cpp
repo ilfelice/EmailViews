@@ -5836,12 +5836,14 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
             fPendingBodySearch = false;
             fPendingBodySearchText.SetTo("");
             
-            // Clear the body search text and active flag
-            fSearchField->SetBodySearchActive(false);
+            // Clear the body search text
             fSearchField->SetBodySearchText("");
             
-            // Reload the current view (filter only, no body search)
-            ApplySearchFilter();
+            // Only reload if a body search was actually active
+            if (fSearchField->IsBodySearchActive()) {
+                fSearchField->SetBodySearchActive(false);
+                ApplySearchFilter();
+            }
             fSearchField->BodySearchTextView()->MakeFocus(true);
             break;
         }
