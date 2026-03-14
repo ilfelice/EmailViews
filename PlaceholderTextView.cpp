@@ -54,22 +54,40 @@ PlaceholderTextView::KeyDown(const char* bytes, int32 numBytes)
 		// Trigger the clear action on our parent SearchTextControl
 		SearchTextControl* control =
 			dynamic_cast<SearchTextControl*>(Parent());
-		if (control != NULL)
+		if (control != NULL) {
 			control->TriggerClear();
+			// The clear action commits the empty state, so sync our
+			// tracker to avoid a redundant invoke on the next Tab.
+			fLastCommittedText.SetTo("");
+		}
 		return;
 	}
 	if (numBytes == 1 && bytes[0] == B_TAB) {
 		// Navigate to the next/previous tab stop within our SearchBarView
 		// ancestor instead of inserting a tab character.
 		// Commit the current field first (same as pressing Enter) so the
-		// search executes before focus moves away.
-		if (TextLength() > 0 && fInvokeMessage != NULL && fTarget.IsValid()) {
+		// search executes before focus moves away — but only if the text
+		// has actually changed since the last commit, otherwise the email
+		// list reloads unnecessarily and steals focus from the target widget.
+		BString currentText = Text();
+		if (currentText != fLastCommittedText
+			&& fInvokeMessage != NULL && fTarget.IsValid()) {
+			fLastCommittedText = currentText;
 			BMessage message(*fInvokeMessage);
 			fTarget.SendMessage(&message);
 		}
-		// Check for Shift modifier (reverse tab)
-		int32 modifiers = ::modifiers();
-		bool forward = (modifiers & B_SHIFT_KEY) == 0;
+		// Check for Shift modifier (reverse tab).
+		// Read from the window's current B_KEY_DOWN message rather than
+		// polling ::modifiers(), which can miss a fast Shift release —
+		// especially after the invoke message send above adds latency.
+		int32 mods = 0;
+		BWindow* window = Window();
+		if (window != NULL) {
+			BMessage* msg = window->CurrentMessage();
+			if (msg != NULL)
+				msg->FindInt32("modifiers", &mods);
+		}
+		bool forward = (mods & B_SHIFT_KEY) == 0;
 
 		// Walk up to the SearchBarView ancestor and use its tab order
 		BView* ancestor = Parent();
@@ -84,6 +102,7 @@ PlaceholderTextView::KeyDown(const char* bytes, int32 numBytes)
 	if (numBytes == 1 && bytes[0] == B_ENTER) {
 		// Send invoke message on Enter
 		if (fInvokeMessage != NULL && fTarget.IsValid()) {
+			fLastCommittedText = Text();
 			BMessage message(*fInvokeMessage);
 			fTarget.SendMessage(&message);
 		}

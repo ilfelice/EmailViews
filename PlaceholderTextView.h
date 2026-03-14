@@ -32,6 +32,8 @@ public:
 	void				SetTarget(BMessenger messenger);
 	void				SetModificationMessage(BMessage* message);
 	void				SetInvokeMessage(BMessage* message);
+	void				ResetCommittedText()
+							{ fLastCommittedText.SetTo(""); }
 
 private:
 	void				_DrawPlaceholder();
@@ -41,6 +43,7 @@ private:
 	BMessenger			fTarget;
 	BMessage*			fModificationMessage;
 	BMessage*			fInvokeMessage;
+	BString				fLastCommittedText;  // Text at last invoke (Enter or Tab)
 };
 
 #endif // PLACEHOLDER_TEXT_VIEW_H

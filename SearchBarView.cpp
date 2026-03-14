@@ -319,8 +319,12 @@ SearchTextControl::SetClearToolTip(const char* tip)
 void
 SearchTextControl::TriggerClear()
 {
-	if (fClearEnabled && fClearMessage != NULL && fClearTarget.IsValid())
+	if (fClearEnabled && fClearMessage != NULL && fClearTarget.IsValid()) {
 		fClearTarget.SendMessage(fClearMessage);
+		// The clear action commits the empty state — sync the text view's
+		// committed-text tracker so the next Tab doesn't re-invoke.
+		fTextView->ResetCommittedText();
+	}
 }
 
 
@@ -782,15 +786,19 @@ SearchBarView::MessageReceived(BMessage* message)
 		case MSG_CLEAR_BUTTON_CLICKED:
 			if (Window())
 				Window()->PostMessage(MSG_SEARCH_CLEAR);
-			if (fTextControl)
+			if (fTextControl) {
+				fTextControl->TextView()->ResetCommittedText();
 				fTextControl->MakeFocus(true);
+			}
 			break;
 
 		case MSG_BODY_CLEAR_CLICKED:
 			if (Window())
 				Window()->PostMessage(MSG_BODY_SEARCH_CLEAR);
-			if (fBodySearchControl)
+			if (fBodySearchControl) {
+				fBodySearchControl->TextView()->ResetCommittedText();
 				fBodySearchControl->MakeFocus(true);
+			}
 			break;
 
 		default:
