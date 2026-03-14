@@ -270,6 +270,9 @@ EmailReaderWindow::EmailReaderWindow(BRect rect, const char* title,
 		// Add simple Close
 		menu->AddItem(new BMenuItem(B_TRANSLATE("Close"),
 			new BMessage(B_QUIT_REQUESTED), 'W'));
+		menu->AddItem(new BMenuItem(
+			B_TRANSLATE("Close and keep status"),
+			new BMessage(M_CLOSE_KEEP_STATUS), 'W', B_SHIFT_KEY));
 	} else {
 		menu->AddSeparatorItem();
 		menu->AddItem(new BMenuItem(B_TRANSLATE("Close"),
@@ -1186,6 +1189,11 @@ EmailReaderWindow::MessageReceived(BMessage* msg)
 			be_app->PostMessage(&message);
 			break;
 		}
+		case M_CLOSE_KEEP_STATUS:
+			fKeepStatusOnClose = true;
+			PostMessage(B_QUIT_REQUESTED);
+			break;
+
 		case M_DELETE:
 		case M_DELETE_PREV:
 		case M_DELETE_NEXT:

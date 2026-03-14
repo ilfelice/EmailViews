@@ -132,7 +132,10 @@ enum MENUS {
 	M_RESET_CHANGED,
 	
 	// View HTML version of email
-	M_VIEW_HTML_VERSION
+	M_VIEW_HTML_VERSION,
+
+	// Close window without changing the email's read/seen status
+	M_CLOSE_KEEP_STATUS
 };
 
 
