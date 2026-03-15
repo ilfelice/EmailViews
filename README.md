@@ -113,8 +113,8 @@ EmailViews is built on the shoulders of Haiku's mail kit and draws inspiration f
 - **QuickLaunch** by Humdinger — Deskbar replicant integration
 - **Tracker** by the Haiku Project — file management patterns
 - **Icons** from the Haiku and Zumi icon sets.
-
-**Special thanks** to **Humdinger** for meticulous testing, detailed bug reports, valuable feature suggestions, and code contributions.
+- **HiDPI support:** Jeroen de Haas for raising awareness font-size sensitivity and testing in HiDPI monitors.
+- **Special thanks** to **Humdinger** for meticulous testing, detailed bug reports, valuable feature suggestions, and code contributions.
 
 ## License
 
