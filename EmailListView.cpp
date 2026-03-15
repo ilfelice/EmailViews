@@ -2507,9 +2507,6 @@ EmailListView::_HandleKeyDown(const char* bytes, int32 numBytes)
 {
     if (numBytes == 1) {
         int32 mods = ::modifiers();
-        // DEBUG: log all keystrokes to stderr
-        fprintf(stderr, "[EmailListView] KeyDown: bytes[0]=0x%02x ('%c') numBytes=%d mods=0x%08x B_COMMAND_KEY=0x%08x\n",
-            (unsigned char)bytes[0], bytes[0], (int)numBytes, (int)mods, (int)B_COMMAND_KEY);
         bool extend = (mods & B_SHIFT_KEY) != 0;
         int32 current = fLastClickIndex >= 0 ? fLastClickIndex : FirstSelected();
         
