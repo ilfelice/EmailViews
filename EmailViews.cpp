@@ -4606,14 +4606,17 @@ void EmailViewsWindow::MessageReceived(BMessage* message)
                 
                 // Give the email list keyboard focus when loading completes
                 // so Alt+A and keyboard navigation work without requiring a click.
-                // Skip if a search field currently has focus (e.g. user tabbed
-                // between filter and body search fields which triggered this reload).
+                // Skip if any widget in the search bar currently has focus (e.g.
+                // user tabbed between filter and body search fields, or to a menu
+                // field, which triggered this reload).
                 {
                     BView* focused = CurrentFocus();
                     bool searchHasFocus = false;
-                    if (focused != NULL) {
-                        searchHasFocus = (focused == fSearchField->TextView()
-                            || focused == fSearchField->BodySearchTextView());
+                    for (BView* v = focused; v != NULL; v = v->Parent()) {
+                        if (v == fSearchField) {
+                            searchHasFocus = true;
+                            break;
+                        }
                     }
                     if (!searchHasFocus)
                         fEmailList->MakeFocus(true);
